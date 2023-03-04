@@ -1,0 +1,162 @@
+search_r: 1.0
+search_num: 10
+search_r2: 1.0
+search_num2: 1
+search_r3: 10
+search_num3: 1
+x_max: 300.0
+x_min: 5 #-1 # 1
+y_min: -40
+y_max: 40
+z_min: -2.5
+z_max: 5
+dis_threshold: 12 #3 the bigger the more points 60 90
+angle_threshold: 100 #100 not used
+deep_config: 80
+point_r: 2
+txtname: ../road6/list1.txt
+foldername: ../road6/
+oxtsfolder: ../road6/
+filtername: ../road6/filter_list.txt
+filter_foldername: ../road6/
+truthname: ../road6/truth_list.txt
+truth_foldername: ../road6/
+
+3frame_score: false
+edge_features: false
+line_features: true
+filter_edge_features: false
+filter_line_features: false
+cluster_pointcloud: true
+merge_frame: false
+down_sample: false
+save_pointcloud: false
+save_calibrated_result: true
+gauss_coresize: 5
+edge_contours_size: 50
+canny_threshold_mini: 50
+canny_threshold_max: 100
+normalize_config: 1100 # the bigger the thinner 3000
+normalize_config_thin: 3600 # the bigger the thinner 3000
+delete_ground: false # true
+WindowSize: 0.5
+#-0.055307-0.126162-0.186781
+#-0.105307-0.221162-0.096781
+#-0.155307-0.271162-0.201781
+#-0.155307-0.271162-0.201781     0.024693-0.271162-0.051781
+bias_x: -0 #-0.4
+bias_y: -0
+bias_z: -0 #-0.4  #把偏差bias置成0
+
+bias_x1: 0
+bias_y1: 0
+bias_z1: 0
+
+bias_x2: 0
+bias_y2: 0 #
+bias_z2: 0
+
+t03: -0.004069766 # -0.15407 #-0.004069766   -0.0640698 -0.19407
+t13: -0.07631618 # -0.0963162  #-0.07631618  -0.156316 -0.176316
+t23: -0.2717806 # -0.311781   #-0.2717806 -0.311781 -0.371781
+#t03: -0.0940698 #-0.10407 #-0.0740698 #-0.15407 #-0.110498 #-0.004069766   -0.0640698 -0.19407
+#t13: -0.0863162 #-0.176316  #0.046316 #-0.126316 #-0.1331034  #-0.07631618  -0.156316 -0.176316
+#t23: -0.281781 #-0.471781  #-0.281781 #-0.361781  #-0.252017   #-0.2717806 -0.311781 -0.371781
+max_distance: 30
+debug_OnOff: false
+rings: 64
+lowerBound: -24.9
+upperBound: 2.0   
+show_num: 0
+KKK: 1.0
+#-0.06406980.0636838-0.211781
+#-0.05, -0.186316, -0.111781
+#-0.07, -0.156316, -0.161781
+many_or_one: 3
+wait_msec: 13000
+
+sigma: 50
+step: 0.0001
+alpha: 0.1
+beta: 0.9
+search_iter: 100
+add_dis_weight: true
+add_near_weight: false
+overlap: true
+
+R_lidar2cam0_unbias:
+  data: [0.007533745, -0.9999714, -0.000616602,
+         0.01480249,  0.0007280733, -0.9998902,
+         0.9998621,   0.00752379,   0.01480755]
+
+T_cam02cam2:
+  data: [9.999239e-01, 9.837760e-03, -7.445048e-03,2.573699e-16,
+                 -9.869795e-03, 9.999421e-01, -4.278459e-03,-1.059758e-16,
+                  7.402527e-03, 4.351614e-03, 9.999631e-01,1.614870e-16,
+                 0,0, 0,1]
+
+T_frame2frame0_pcs:
+  data: [1, 0, 0,0,
+                0, 1,0,0,
+                 0,0,1,0,
+                 0,0, 0,1]
+T_frame2frame0_images:
+  data: [1, 0, 0,0,
+                0, 1,0,0,
+                 0,0,1,0,
+                 0,0, 0,1]
+
+fx: 721.5377
+fy: 721.5377
+cx: 609.5593
+cy: 172.854
+
+
+extract_pc_edges:
+  nearest_num: 30
+  edge_dis_th: 1.0
+  planarity_th: 1.0
+  ep_dis_th: 0.4
+  neighbor_num: 5
+  NMS_dis: 0.2
+  show_all: false
+  method: 6
+  add_edge: false
+  shuzhi_dis_th: 0.6
+  angle_pixel_dis: 3
+extract_img_edges:
+  lambda: 0.05
+  kappa: 1.0
+test_sobel_weight:
+  weight_x: 1.0
+  weight_y: 1.0
+
+rx_plus: 0 #俯仰？
+ry_plus: 1 #左右！
+rz_plus: 0
+tx_plus: 0.1
+ty_plus: 0 #上下？
+tz_plus: 1 #前后！
+
+iterate_ang_step_big[0]: 0.06 #0.06
+iterate_tra_step_big[0]: 0.005  #0.002
+iterate_ang_step_small[0]: 0.04 #0.01
+iterate_tra_step_small[0]: 0.001   #0.001
+
+iterate_ang_step_big[1]: 0.03
+iterate_tra_step_big[1]: 0.001
+iterate_ang_step_small[1]: 0.01
+iterate_tra_step_small[1]: 0.0002
+
+rx2: 0.1
+ry2: -0.1
+rz2: -0.6
+t032: -0.1040698 #-0.004069766   -0.0640698 -0.19407
+t132: -0.1063162 #-0.07631618  -0.156316 -0.176316
+t232: -0.281781 #-0.2717806 -0.311781 -0.371781
+
+bias_particle: [0, 0, 0, 0, 0, 0]
+normalize_inside: 300
+normalize_outside: 1000
+
+search_loops: 20
