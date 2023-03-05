@@ -72,7 +72,8 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
     // 
     if (points_num < 200) return 0;
     // score = one_score;// / (float)data_num;
-    score = one_score / 255.0 / points_num;
+    // cout << "point_num: " << points_num << endl;
+    score = one_score / 255.0;
 
     return score;
 }
@@ -80,15 +81,15 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
 
 
 
-InitCalib::InitCalib(int _dimension, int _particlenumber, const string config_dir, double _result_threshold, double _w, double _cp, double _cg, int _time_to_end)
-    : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _time_to_end) {
+InitCalib::InitCalib(int _dimension, int _particlenumber, const string config_dir, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
+    : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end) {
         cout << "Start reading configs: " << config_dir << endl;
         config = YAML::LoadFile(config_dir);
         read_configs();
     }
 
-InitCalib::InitCalib(int _dimension, int _particlenumber, YAML::Node _config, double _result_threshold, double _w, double _cp, double _cg, int _time_to_end)
-    : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _time_to_end), config(_config){
+InitCalib::InitCalib(int _dimension, int _particlenumber, YAML::Node _config, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
+    : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end), config(_config){
         read_configs();
     }
 

@@ -948,11 +948,12 @@ int main() {
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature(new pcl::PointCloud<pcl::PointXYZI>);
     extract_pc_feature(pc_filtered, pc_feature, config);
 
-    pcl::visualization::PCLVisualizer feature_viewer("pc_feature");
-    pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> feature_color(pc_feature, 0, 255, 0);
-    feature_viewer.setBackgroundColor(0, 0, 0);
-    feature_viewer.addPointCloud(pc_feature, feature_color, "pc_feature");
-    feature_viewer.spin();
+    // // visualize the feature pointcloud
+    // pcl::visualization::PCLVisualizer feature_viewer("pc_feature");
+    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> feature_color(pc_feature, 0, 255, 0);
+    // feature_viewer.setBackgroundColor(0, 0, 0);
+    // feature_viewer.addPointCloud(pc_feature, feature_color, "pc_feature");
+    // feature_viewer.spin();
 
     cv::Mat img_source = cv::imread("res/semantic_imgs/0000000000.png", cv::IMREAD_GRAYSCALE);
     // cv::imshow("img_source", img_source);
@@ -994,7 +995,7 @@ int main() {
 
 
     // 开始构造PSO优化
-    InitCalib initcalib(6, 50, "configs/config0.yaml");
+    InitCalib initcalib(6, 500, "configs/config0.yaml");
     initcalib.set_distance_img(distance_img);
     initcalib.set_pc_feature(pc_feature);
     initcalib.set_initial_particle();

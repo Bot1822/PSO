@@ -94,9 +94,9 @@ public:
     // 构造函数
     InitCalib();
     InitCalib(int _dimension, int _particlenumber, const string config_dir,
-                 double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, int _time_to_end = 5);
+                 double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);
     InitCalib(int _dimension, int _particlenumber, YAML::Node config, 
-                 double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, int _time_to_end = 5);
+                 double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);
 };
 
 #endif

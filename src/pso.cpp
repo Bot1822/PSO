@@ -81,26 +81,40 @@ void PsoAlgorithm::update() {
     for(int i = 0; i < particle_number; ++i) {
         Particle &particle = particle_swarm.particles[i];
         for(int j = 0; j < dimension; ++j) {
+            double temp_v, temp_x;
             // 速度更新
-            particle.v[j] = w * particle.v[j]
+            temp_v = w * particle.v[j]
                           + cp * rand0_1() * (particle.pbest[j] - particle.x[j])
                           + cg * rand0_1() * (particle_swarm.gbest[j] - particle.x[j]);
             // 位置更新
-            particle.x[j] = particle.x[j] + particle.v[j];
+            temp_x = particle.x[j] + particle.v[j];
             // 设置撞墙反弹
-            bool flag = false;
-            while(particle.x[j] >= positionMax[j] || particle.x[j] <= positionMin[j]) {
-                if(particle.x[j] >= positionMax[j]) {
-                    flag = true;
-                    particle.x[j] = 2 * positionMax[j] - particle.x[j];
+            // while(particle.x[j] >= positionMax[j] || particle.x[j] <= positionMin[j]) {
+            //     if(particle.x[j] >= positionMax[j]) {
+            //         particle.x[j] = (2 * positionMax[j] - particle.x[j]) * wall;
                     
-                }
-                else {
-                    particle.x[j] = 2 * positionMin[j] - particle.x[j];
+            //     }
+            //     else {
+            //         particle.x[j] = (2 * positionMin[j] - particle.x[j]) * wall;
                     
+            //     }
+            //     particle.v[j] = -particle.v[j] * wall;
+            // }
+            while (temp_x >= positionMax[j] || temp_x <= positionMin[j])
+            {
+                if (temp_x >= positionMax[j])
+                {
+                    temp_x = positionMax[j] - (temp_x - positionMax[j]) * wall;
                 }
-                particle.v[j] = -particle.v[j] * wall;
+                else
+                {
+                    temp_x = positionMin[j] + (positionMin[j] - temp_x) * wall;
+                }
+                temp_v = -temp_v * wall;
             }
+            
+            particle.v[j] = temp_v;
+            particle.x[j] = temp_x;
         }
     }
     
