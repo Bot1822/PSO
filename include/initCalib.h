@@ -2,6 +2,8 @@
 #ifndef PROJECT_INITCALIB_H
 #define PROJECT_INITCALIB_H
 
+#include <vector>
+
 #include <pcl/io/pcd_io.h>
 #include <pcl/common/io.h>
 #include <pcl/common/common.h>
@@ -43,8 +45,6 @@
 #include <iostream>
 #include <yaml.h>
 
-using namespace std;
-
 #define PI (3.1415926535897932346f)
 
 float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv::Mat distance_image,
@@ -73,27 +73,26 @@ public:
 
     // 设置搜寻范围
     using PsoAlgorithm::setSearchScope;
-    void setSearchScope(double *bias, double maxspeedratio = 0.15);
+    void setSearchScope(std::vector<double> search_scope, double maxspeedratio = 0.15);
     
     // 获得点云信息
-    void set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc_source, pcl::PointCloud<pcl::PointXYZI>::Ptr &pc_feature);
     void set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr _pc_feature);
 
     // 获得图片信息
     void set_distance_img(cv::Mat _distance_img);
-    void set_distance_img(const string img_dir);
+    void set_distance_img(const std::string img_dir);
 
     // 从粒子信息提取RT矩阵
     static Eigen::Matrix4f particle2RT(Particle* p);
     static Eigen::Matrix4f particle2RT(double *p);
+    static Eigen::Matrix4f particle2RT(std::vector<double> p);
     
     // 点云投影获取fitness值
     double fitnessFunction(Particle &p);
-    double fitnessFunction(Particle *p);
 
     // 构造函数
     InitCalib();
-    InitCalib(int _dimension, int _particlenumber, const string config_dir,
+    InitCalib(int _dimension, int _particlenumber, const std::string config_dir,
                  double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);
     InitCalib(int _dimension, int _particlenumber, YAML::Node config, 
                  double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);

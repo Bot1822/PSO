@@ -3,16 +3,20 @@
 #ifndef _PSO_H
 #define _PSO_H
 
+#include <iostream>
+#include <assert.h>
+#include <vector>
 
+// 粒子描述符，包含粒子的位置、速度、适应度、最优位置
 struct Particle
 {
     double *x;	//粒子所在位置，即为问题候选解
     double *v;	//粒子运动速度
     double fitness;		//粒子适应度
     double *pbest; //粒子所经历过的最优位置
-
 };
 
+// 粒子群描述符，包含粒子群中的粒子集合、粒子群的全局最优解、粒子群的全局最优解适应度
 struct ParticleSwarm
 {
     Particle *particles; //一群粒子构成的集合
@@ -20,6 +24,28 @@ struct ParticleSwarm
     double gfitness; //当前粒子群进化中的全局最优解适应度
 };
 
+// 开辟一块粒子群空间
+ParticleSwarm mallocParticleSwarm(int dimension, int particle_number);
+
+// 定义要解决的问题
+class Problem
+{
+public:
+    int dimension; //问题维度
+    // 解空间的边界
+    std::vector<double> positionMin; //问题解的最小界
+    std::vector<double> positionMax; //问题解的最大界
+    double (*fitness)(std::vector<double> position); //求解方法
+
+    double result_Y;
+    std::vector<double> result_position; //问题候选解
+
+    Problem();
+    Problem(int _dimension, double (*_fitnessFunctionPtr)(Particle&));
+    ~Problem();
+};
+
+// 粒子群算法类
 class PsoAlgorithm
 {
 public:
@@ -31,13 +57,13 @@ public:
     double cp; //个体参数
     double cg; //全局参数
     double wall; //碰撞反弹系数
-    double maxspeedratio;
-    double *positionMin; //粒子位置的最小界
-    double *positionMax; //粒子位置的最大界
+    double maxspeedratio; //最大速度与搜索范围的比值
+    std::vector<double> positionMin; //粒子位置的最小界
+    std::vector<double> positionMax; //粒子位置的最大界
     ParticleSwarm particle_swarm;
     double (*fitnessFunctionPtr)(Particle&); //粒子适应度函数
     double result_fitness;
-    double* result_position; //粒子所在位置，即为问题候选解
+    std::vector<double> result_position; //粒子所在位置，即为问题候选解
 
     PsoAlgorithm();
     PsoAlgorithm(int _dimension, int _particlenumber, double (*fitnessFunctionPtr)(Particle&), 
@@ -46,7 +72,7 @@ public:
                  double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);
     ~PsoAlgorithm();
 
-    void printParticle(Particle* particle);
+    void printParticle(const Particle& particle);
     virtual double fitnessFunction(Particle& particle);
     void setSearchScope(double *_positionMin, double *_positionMax, double maxspeedratio = 0.15); //设置寻找范围
     void initial(); //粒子初始化
@@ -54,6 +80,14 @@ public:
     void refreshFitness(); // 更新fitness,gbest,pbest
     void search_once(); // 优化一轮
     void run(int round); //
+    void setFitnessFunctionPtr(double (*_fitnessFunctionPtr)(Particle&));
+    void setw(double _w);
+    void setcp(double _cp);
+    void setcg(double _cg);
+    void setwall(double _wall);
+    void setmaxspeedratio(double _maxspeedratio);
 };
+
+double rand0_1();
 
 #endif

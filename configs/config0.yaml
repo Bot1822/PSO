@@ -95,16 +95,6 @@ T_cam02cam2:
                   7.402527e-03, 4.351614e-03, 9.999631e-01,1.614870e-16,
                  0,0, 0,1]
 
-T_frame2frame0_pcs:
-  data: [1, 0, 0,0,
-                0, 1,0,0,
-                 0,0,1,0,
-                 0,0, 0,1]
-T_frame2frame0_images:
-  data: [1, 0, 0,0,
-                0, 1,0,0,
-                 0,0,1,0,
-                 0,0, 0,1]
 
 fx: 721.5377
 fy: 721.5377
@@ -131,23 +121,6 @@ test_sobel_weight:
   weight_x: 1.0
   weight_y: 1.0
 
-rx_plus: 0 #俯仰？
-ry_plus: 1 #左右！
-rz_plus: 0
-tx_plus: 0.1
-ty_plus: 0 #上下？
-tz_plus: 1 #前后！
-
-iterate_ang_step_big[0]: 0.06 #0.06
-iterate_tra_step_big[0]: 0.005  #0.002
-iterate_ang_step_small[0]: 0.04 #0.01
-iterate_tra_step_small[0]: 0.001   #0.001
-
-iterate_ang_step_big[1]: 0.03
-iterate_tra_step_big[1]: 0.001
-iterate_ang_step_small[1]: 0.01
-iterate_tra_step_small[1]: 0.0002
-
 rx2: 0.1
 ry2: -0.1
 rz2: -0.6
@@ -159,4 +132,16 @@ bias_particle: [0, 0, 0, 0, 0, 0]
 normalize_inside: 300
 normalize_outside: 1000
 
-search_loops: 20
+search_loops: 100
+search_scope: [-0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+particle_num: 500
+
+positionMin: [-0.5, -0.5, -0.5, -3.14, -3.14, -3.14]
+positionMax: [0.5, 0.5, 0.5, 3.14, 3.14, 3.14]
+
+#优化参数
+w: 1
+cp: 1
+cg: 1
+wall: 0.9
+maxspeedratio: 0.5

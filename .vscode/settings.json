@@ -1,5 +1,8 @@
 {
     "files.associations": {
+        "*.cjson": "jsonc",
+        "*.wxss": "css",
+        "*.wxs": "javascript",
         "cstdlib": "cpp",
         "ctime": "cpp",
         "*.tcc": "cpp",
@@ -66,7 +69,12 @@
         "dll.h": "c",
         "geometry": "cpp",
         "csignal": "cpp",
-        "random": "cpp"
+        "random": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp"
     },
     "cmake.configureOnOpen": false
 }

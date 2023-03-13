@@ -1,9 +1,25 @@
-#include <pso.h>
+#include "pso.h"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
 
 double rand0_1() {return ((1.0*rand())/RAND_MAX);}
+
+ParticleSwarm mallocParticleSwarm(int dimension, int particle_number) {
+    ParticleSwarm particle_swarm;
+    particle_swarm.particles = new Particle[particle_number];
+    particle_swarm.gbest = new double[dimension];
+    particle_swarm.gfitness = 0;
+    for(int i = 0; i < particle_number; ++i) {
+        Particle &particle = particle_swarm.particles[i];
+
+        particle.x = new double[dimension];
+        particle.v = new double[dimension];
+        particle.fitness = 0;
+        particle.pbest = new double[dimension];
+    }
+    return particle_swarm;
+}
 
 PsoAlgorithm::PsoAlgorithm() {
 
@@ -20,9 +36,6 @@ PsoAlgorithm::PsoAlgorithm(int _dimension, int _particlenumber, double _result_t
 
 PsoAlgorithm::~PsoAlgorithm() {
     std::cout << "PsoAlgorithm析构开始";
-    delete positionMax;
-    delete positionMin;
-    delete result_position;
     delete particle_swarm.gbest;
 
     for (int i = 0; i < particle_number; ++i) {
@@ -35,8 +48,6 @@ PsoAlgorithm::~PsoAlgorithm() {
 }
 
 void PsoAlgorithm::setSearchScope(double *_positionMin, double *_positionMax, double _maxspeedratio) {
-    positionMin = new double[dimension];
-    positionMax = new double[dimension];
     maxspeedratio = _maxspeedratio;
     for(int i = 0; i < dimension; ++i) {
         positionMax[i] = _positionMax[i];
@@ -47,7 +58,6 @@ void PsoAlgorithm::setSearchScope(double *_positionMin, double *_positionMax, do
 void PsoAlgorithm::initial() {
     
     srand(time(NULL));
-    result_position = new double[dimension];
 
     // 开辟并初始化一块粒子群空间
     particle_swarm.particles = new Particle[particle_number];
@@ -75,6 +85,7 @@ void PsoAlgorithm::initial() {
     }
     
     result_fitness = particle_swarm.gfitness;
+    result_position.resize(dimension);
 }
 
 void PsoAlgorithm::update() {
@@ -88,18 +99,7 @@ void PsoAlgorithm::update() {
                           + cg * rand0_1() * (particle_swarm.gbest[j] - particle.x[j]);
             // 位置更新
             temp_x = particle.x[j] + particle.v[j];
-            // 设置撞墙反弹
-            // while(particle.x[j] >= positionMax[j] || particle.x[j] <= positionMin[j]) {
-            //     if(particle.x[j] >= positionMax[j]) {
-            //         particle.x[j] = (2 * positionMax[j] - particle.x[j]) * wall;
-                    
-            //     }
-            //     else {
-            //         particle.x[j] = (2 * positionMin[j] - particle.x[j]) * wall;
-                    
-            //     }
-            //     particle.v[j] = -particle.v[j] * wall;
-            // }
+            // 设置撞墙反弹,权重衰退
             while (temp_x >= positionMax[j] || temp_x <= positionMin[j])
             {
                 if (temp_x >= positionMax[j])
@@ -161,19 +161,44 @@ void PsoAlgorithm::run(int round) {
     for(int j = 0; j < dimension; ++j) result_position[j] = particle_swarm.gbest[j];
 }
 
-void PsoAlgorithm::printParticle(Particle *particle)
+void PsoAlgorithm::setFitnessFunctionPtr(double (*_fitnessFunctionPtr)(Particle &))
+{
+    fitnessFunctionPtr = _fitnessFunctionPtr;
+}
+
+void PsoAlgorithm::printParticle(const Particle& particle)
 {
     std::cout << "particle:" << std::endl;
     std::cout << "x: ";
-    for(int i = 0; i < dimension; ++i) std::cout << particle->x[i] << " ";
+    for(int i = 0; i < dimension; ++i) std::cout << particle.x[i] << " ";
     std::cout << std::endl;
     std::cout << "v: ";
-    for(int i = 0; i < dimension; ++i) std::cout << particle->v[i] << " ";
+    for(int i = 0; i < dimension; ++i) std::cout << particle.v[i] << " ";
     std::cout << std::endl;
-    std::cout << "pfitness: " << particle->fitness << std::endl;
+    std::cout << "pfitness: " << particle.fitness << std::endl;
 }
 
 double PsoAlgorithm::fitnessFunction(Particle &particle)
 {
     return fitnessFunctionPtr(particle);
+}
+
+void PsoAlgorithm::setw(double _w) {
+    w = _w;
+}
+
+void PsoAlgorithm::setcp(double _cp) {
+    cp = _cp;
+}
+
+void PsoAlgorithm::setcg(double _cg) {
+    cg = _cg;
+}
+
+void PsoAlgorithm::setwall(double _wall) {
+    wall = _wall;
+}
+
+void PsoAlgorithm::setmaxspeedratio(double _maxspeedratio) {
+    maxspeedratio = _maxspeedratio;
 }

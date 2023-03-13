@@ -1,5 +1,6 @@
-#include <initCalib.h>
+#include "initCalib.h"
 #include <fstream>
+#include <vector>
 
 bool getPointcloud(std::string filename, pcl::PointCloud<pcl::PointXYZI>::Ptr ptcloud)
 {
@@ -904,7 +905,7 @@ void project2image(pcl::PointCloud<pcl::PointXYZI>::Ptr pc, cv::Mat raw_image, c
 }
 
 int main() {
-    ofstream result_txt("results/result.txt", ios::app);
+    std::ofstream result_txt("results/result.txt", ios::app);
     result_txt << "The beginning of the PSO!!!!\n" << endl;
 
     YAML::Node config = YAML::LoadFile("configs/config0.yaml");
@@ -995,14 +996,22 @@ int main() {
 
 
     // 开始构造PSO优化
-    InitCalib initcalib(6, 500, "configs/config0.yaml");
+    int particle_num = config["particle_num"].as<int>();
+    InitCalib initcalib(6, particle_num, "configs/config0.yaml");
     initcalib.set_distance_img(distance_img);
     initcalib.set_pc_feature(pc_feature);
     initcalib.set_initial_particle();
-    initcalib.bias_initial_particle();
-    double bias[6] = {1, 1, 1, 0.5, 0.5, 0.5};
-    initcalib.setSearchScope(bias);
+    // initcalib.bias_initial_particle();
+    std::vector<double> search_scope = config["search_scope"].as<std::vector<double>>();
+    initcalib.setSearchScope(search_scope);
 
+    // 从配置文件中读取优化参数
+    initcalib.setw(config["w"].as<double>());
+    initcalib.setcp(config["cp"].as<double>());
+    initcalib.setcg(config["cg"].as<double>());
+    initcalib.setwall(config["wall"].as<double>());
+    initcalib.setmaxspeedratio(config["maxspeedratio"].as<double>());
+    
     initcalib.initial();
     
     cv::Mat img_before_pso;
@@ -1020,19 +1029,25 @@ int main() {
                         initcalib.particle2RT(initcalib.get_initial_partical()), initcalib.camera_param);
     cv::imwrite("results/project_imgs/before_pso.jpg", img_before_pso);
 
+    std::vector<double> temp_position(6, 0);
     for(int i = 0; i < config["search_loops"].as<int>(); ++i){
         initcalib.search_once();
-        cout << "\n\nROUND " << i << "!" << endl;
+        cout << "\nROUND " << i << "!" << endl;
+        if (initcalib.result_position == temp_position) {
+            cout << "result_position is not changed!" << endl;
+            continue;
+        }
+        temp_position = initcalib.result_position;
         cout << "搜索后结果" << endl;
         for(int i = 0; i < 6; ++i) cout << initcalib.result_position[i] << " ";
         cout << endl;
         cout << "result_fitness:" << initcalib.result_fitness << endl;
-        cout << "coutScore:" << countScore(pc_feature, distance_img, 
+        cout << "countScore:" << countScore(pc_feature, distance_img, 
                     initcalib.particle2RT(initcalib.result_position), initcalib.camera_param) << endl;
         cv::Mat test1;
         project2image(pc_feature,distance_img, test1, 
                             initcalib.particle2RT(initcalib.result_position), initcalib.camera_param);
-        cv::imwrite("results/project_imgs/" + to_string(i) + ".jpg", test1);
+        cv::imwrite("results/project_imgs/" + std::to_string(i) + ".jpg", test1);
     }
     // initcalib.set_initial_particle();
 
