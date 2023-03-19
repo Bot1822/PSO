@@ -101,237 +101,237 @@ Eigen::Matrix4f particle2RT(const Particle &p)
     return position2RT(p.x);
 }
 
-InitCalib::InitCalib(int _dimension, int _particlenumber, const std::string config_dir, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
-    : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end) {
-        cout << "Start reading configs: " << config_dir << endl;
-        config = YAML::LoadFile(config_dir);
-        read_configs();
-    }
+// InitCalib::InitCalib(int _dimension, int _particlenumber, const std::string config_dir, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
+//     : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end) {
+//         cout << "Start reading configs: " << config_dir << endl;
+//         config = YAML::LoadFile(config_dir);
+//         read_configs();
+//     }
 
-InitCalib::InitCalib(int _dimension, int _particlenumber, YAML::Node _config, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
-    : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end), config(_config){
-        read_configs();
-    }
+// InitCalib::InitCalib(int _dimension, int _particlenumber, YAML::Node _config, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
+//     : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end), config(_config){
+//         read_configs();
+//     }
 
-bool InitCalib::read_configs()
-{
-    cout << "Start reading camera_param" << endl;
-    camera_param << config["fx"].as<float>(), 0.f, config["cx"].as<float>(), 
-                    0.f, config["fy"].as<float>(), config["cy"].as<float>(),
-                    0, 0, 1;
+// bool InitCalib::read_configs()
+// {
+//     cout << "Start reading camera_param" << endl;
+//     camera_param << config["fx"].as<float>(), 0.f, config["cx"].as<float>(), 
+//                     0.f, config["fy"].as<float>(), config["cy"].as<float>(),
+//                     0, 0, 1;
 
-    cout << "Start reading and computing RT!" << endl;
-    Eigen::Matrix3f R_lidar2cam0_unbias;
-    std::vector<float> ext = config["R_lidar2cam0_unbias"]["data"].as<std::vector<float>>();
-    assert((int)ext.size() == 9);
-    for (int row = 0; row < 3; row++) {
-        for (int col = 0; col < 3; col++) {
-            R_lidar2cam0_unbias(row, col) = ext[row * 3 + col];
-        }
-    }
+//     cout << "Start reading and computing RT!" << endl;
+//     Eigen::Matrix3f R_lidar2cam0_unbias;
+//     std::vector<float> ext = config["R_lidar2cam0_unbias"]["data"].as<std::vector<float>>();
+//     assert((int)ext.size() == 9);
+//     for (int row = 0; row < 3; row++) {
+//         for (int col = 0; col < 3; col++) {
+//             R_lidar2cam0_unbias(row, col) = ext[row * 3 + col];
+//         }
+//     }
 
-    Eigen::Matrix4f T_lidar2cam0_unbias;
-    // 块操作可以被用作左值或右值
-    T_lidar2cam0_unbias.block(0, 0, 3, 3) = R_lidar2cam0_unbias;
-    T_lidar2cam0_unbias(0, 3) = config["t03"].as<float>();
-    T_lidar2cam0_unbias(1, 3) = config["t13"].as<float>();
-    T_lidar2cam0_unbias(2, 3) = config["t23"].as<float>();
-    T_lidar2cam0_unbias.row(3) << 0, 0, 0, 1;
+//     Eigen::Matrix4f T_lidar2cam0_unbias;
+//     // 块操作可以被用作左值或右值
+//     T_lidar2cam0_unbias.block(0, 0, 3, 3) = R_lidar2cam0_unbias;
+//     T_lidar2cam0_unbias(0, 3) = config["t03"].as<float>();
+//     T_lidar2cam0_unbias(1, 3) = config["t13"].as<float>();
+//     T_lidar2cam0_unbias(2, 3) = config["t23"].as<float>();
+//     T_lidar2cam0_unbias.row(3) << 0, 0, 0, 1;
 
-    Eigen::Matrix4f T_cam02cam2;
-    std::vector<float> cam02cam2 = config["T_cam02cam2"]["data"].as<std::vector<float>>(); 
-    assert((int)cam02cam2.size() == 16);
-    for (int row = 0; row < 4; row++) {
-        for (int col = 0; col < 4; col++) {
-            T_cam02cam2(row, col) = cam02cam2[row * 4 + col];
-        }
-    }
+//     Eigen::Matrix4f T_cam02cam2;
+//     std::vector<float> cam02cam2 = config["T_cam02cam2"]["data"].as<std::vector<float>>(); 
+//     assert((int)cam02cam2.size() == 16);
+//     for (int row = 0; row < 4; row++) {
+//         for (int col = 0; col < 4; col++) {
+//             T_cam02cam2(row, col) = cam02cam2[row * 4 + col];
+//         }
+//     }
 
-    initial_T = T_cam02cam2 * T_lidar2cam0_unbias;
-    initial_R = initial_T.block(0, 0, 3, 3);
+//     initial_T = T_cam02cam2 * T_lidar2cam0_unbias;
+//     initial_R = initial_T.block(0, 0, 3, 3);
     
-    return true;
-}
+//     return true;
+// }
 
-Particle *InitCalib::get_initial_partical()
-{
-    return initial_particle;
-}
+// Particle *InitCalib::get_initial_partical()
+// {
+//     return initial_particle;
+// }
 
-void InitCalib::set_initial_particle()
-{
-    initial_particle = new Particle;
-    initial_particle->x = new double[dimension];
-    initial_particle->v = new double[dimension];
-    initial_particle->pbest = new double[dimension];
+// void InitCalib::set_initial_particle()
+// {
+//     initial_particle = new Particle;
+//     initial_particle->x = new double[dimension];
+//     initial_particle->v = new double[dimension];
+//     initial_particle->pbest = new double[dimension];
 
-    initial_particle->x[0] = initial_T(0, 3);
-    initial_particle->x[1] = initial_T(1, 3);
-    initial_particle->x[2] = initial_T(2, 3);
+//     initial_particle->x[0] = initial_T(0, 3);
+//     initial_particle->x[1] = initial_T(1, 3);
+//     initial_particle->x[2] = initial_T(2, 3);
 
-    Eigen::Vector3f eulerAngle1 = initial_R.eulerAngles(0, 1, 2);
-    initial_particle->x[3] = eulerAngle1[0];
-    initial_particle->x[4] = eulerAngle1[1];
-    initial_particle->x[5] = eulerAngle1[2];
+//     Eigen::Vector3f eulerAngle1 = initial_R.eulerAngles(0, 1, 2);
+//     initial_particle->x[3] = eulerAngle1[0];
+//     initial_particle->x[4] = eulerAngle1[1];
+//     initial_particle->x[5] = eulerAngle1[2];
     
-    initial_particle->pbest_fitness = fitnessFunction((*initial_particle));
+//     initial_particle->pbest_fitness = fitnessFunction((*initial_particle));
 
-}
-void InitCalib::set_initial_particle(Eigen::Matrix4f _initial_T)
-{
-    initial_particle = new Particle;
-    initial_particle->x = new double[dimension];
-    initial_particle->v = new double[dimension];
-    initial_particle->pbest = new double[dimension];
+// }
+// void InitCalib::set_initial_particle(Eigen::Matrix4f _initial_T)
+// {
+//     initial_particle = new Particle;
+//     initial_particle->x = new double[dimension];
+//     initial_particle->v = new double[dimension];
+//     initial_particle->pbest = new double[dimension];
     
-    initial_T = _initial_T;
-    initial_R = initial_T.block(0, 0, 3, 3);
+//     initial_T = _initial_T;
+//     initial_R = initial_T.block(0, 0, 3, 3);
 
-    initial_particle->x[0] = initial_T(0, 3);
-    initial_particle->x[1] = initial_T(1, 3);
-    initial_particle->x[2] = initial_T(2, 3);
+//     initial_particle->x[0] = initial_T(0, 3);
+//     initial_particle->x[1] = initial_T(1, 3);
+//     initial_particle->x[2] = initial_T(2, 3);
 
-    Eigen::Vector3f eulerAngle1 = initial_R.eulerAngles(0, 1, 2);
-    initial_particle->x[3] = eulerAngle1[0];
-    initial_particle->x[4] = eulerAngle1[1];
-    initial_particle->x[5] = eulerAngle1[2];
-}
-
-
-void InitCalib::bias_initial_particle()
-{
-    std::cout << "Start adding bias to initial particle!!" << std::endl;
-    printParticle(*initial_particle);
-    std::vector<float> bias = config["bias_particle"].as<std::vector<float>>();
-    for(int i = 0; i < dimension; ++i) initial_particle->x[i] += bias[i];
-    printParticle(*initial_particle);
-}
-
-void InitCalib::setSearchScope(std::vector<double> search_scope, double _maxspeedratio)
-{
-    if (search_scope.size() != dimension) {
-        cerr << "Fatal error: Search scope dimension is not equal to particle dimension!!" << endl;
-        exit(1);
-    }
-    // 如果search_scope中有小于0的值，进行全局搜索，否则进行局部搜索
-    if (search_scope[0] < 0 || search_scope[1] < 0 || search_scope[2] < 0 || search_scope[3] < 0 || search_scope[4] < 0 || search_scope[5] < 0) {
-        maxspeedratio = _maxspeedratio;
-        // 设置全局搜索范围，从配置文件中读取
-        positionMin = config["positionMin"].as<std::vector<double>>();
-        positionMax = config["positionMax"].as<std::vector<double>>();
-        return;
-    }
-    // 如果search_scope中所有值都大于0，进行局部搜索
-    // 局部搜索的范围为初始粒子的位置加上search_scope
-    // 若不存在初始粒子，则报错
-    if (initial_particle == nullptr) {
-        cerr << "Fatal error: Do not have initial particle to set search scope!!" << endl;
-        exit(1);
-    }
-    maxspeedratio = _maxspeedratio;
-    for (int i = 0; i < dimension; ++i) {
-        positionMin.push_back(initial_particle->x[i] - search_scope[i]);
-        positionMax.push_back(initial_particle->x[i] + search_scope[i]);
-    }
-}
-
-void InitCalib::set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr _pc_feature)
-{
-    pc_feature = _pc_feature;
-}
-
-void InitCalib::set_distance_img(cv::Mat _distance_img)
-{
-    // 注意，浅拷贝！！若有需求之后可以改成深拷贝
-    distance_image = _distance_img;
-}
-void InitCalib::set_distance_img(const std::string img_dir)
-{
-    distance_image = cv::imread(img_dir);
-}
+//     Eigen::Vector3f eulerAngle1 = initial_R.eulerAngles(0, 1, 2);
+//     initial_particle->x[3] = eulerAngle1[0];
+//     initial_particle->x[4] = eulerAngle1[1];
+//     initial_particle->x[5] = eulerAngle1[2];
+// }
 
 
-Eigen::Matrix4f InitCalib::particle2RT(const Particle& p)
-{
-    Eigen::Matrix4f RT;
+// void InitCalib::bias_initial_particle()
+// {
+//     std::cout << "Start adding bias to initial particle!!" << std::endl;
+//     printParticle(*initial_particle);
+//     std::vector<float> bias = config["bias_particle"].as<std::vector<float>>();
+//     for(int i = 0; i < dimension; ++i) initial_particle->x[i] += bias[i];
+//     printParticle(*initial_particle);
+// }
+
+// void InitCalib::setSearchScope(std::vector<double> search_scope, double _maxspeedratio)
+// {
+//     if (search_scope.size() != dimension) {
+//         cerr << "Fatal error: Search scope dimension is not equal to particle dimension!!" << endl;
+//         exit(1);
+//     }
+//     // 如果search_scope中有小于0的值，进行全局搜索，否则进行局部搜索
+//     if (search_scope[0] < 0 || search_scope[1] < 0 || search_scope[2] < 0 || search_scope[3] < 0 || search_scope[4] < 0 || search_scope[5] < 0) {
+//         maxspeedratio = _maxspeedratio;
+//         // 设置全局搜索范围，从配置文件中读取
+//         positionMin = config["positionMin"].as<std::vector<double>>();
+//         positionMax = config["positionMax"].as<std::vector<double>>();
+//         return;
+//     }
+//     // 如果search_scope中所有值都大于0，进行局部搜索
+//     // 局部搜索的范围为初始粒子的位置加上search_scope
+//     // 若不存在初始粒子，则报错
+//     if (initial_particle == nullptr) {
+//         cerr << "Fatal error: Do not have initial particle to set search scope!!" << endl;
+//         exit(1);
+//     }
+//     maxspeedratio = _maxspeedratio;
+//     for (int i = 0; i < dimension; ++i) {
+//         positionMin.push_back(initial_particle->x[i] - search_scope[i]);
+//         positionMax.push_back(initial_particle->x[i] + search_scope[i]);
+//     }
+// }
+
+// void InitCalib::set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr _pc_feature)
+// {
+//     pc_feature = _pc_feature;
+// }
+
+// void InitCalib::set_distance_img(cv::Mat _distance_img)
+// {
+//     // 注意，浅拷贝！！若有需求之后可以改成深拷贝
+//     distance_image = _distance_img;
+// }
+// void InitCalib::set_distance_img(const std::string img_dir)
+// {
+//     distance_image = cv::imread(img_dir);
+// }
+
+
+// Eigen::Matrix4f InitCalib::particle2RT(const Particle& p)
+// {
+//     Eigen::Matrix4f RT;
     
-    Eigen::Vector3f ea(p.x[3], p.x[4], p.x[5]);
-    Eigen::Matrix3f rotate_matrix3;
-    rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
-                     Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
-                     Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
-    RT.block(0, 0, 3, 3) = rotate_matrix3;            
-    RT(0, 3) = p.x[0];
-    RT(1, 3) = p.x[1];
-    RT(2, 3) = p.x[2];
-    RT.row(3) << 0, 0, 0, 1;
+//     Eigen::Vector3f ea(p.x[3], p.x[4], p.x[5]);
+//     Eigen::Matrix3f rotate_matrix3;
+//     rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
+//                      Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
+//                      Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
+//     RT.block(0, 0, 3, 3) = rotate_matrix3;            
+//     RT(0, 3) = p.x[0];
+//     RT(1, 3) = p.x[1];
+//     RT(2, 3) = p.x[2];
+//     RT.row(3) << 0, 0, 0, 1;
 
-    return RT;
-}
-Eigen::Matrix4f InitCalib::particle2RT(Particle *p)
-{
-    Eigen::Matrix4f RT;
+//     return RT;
+// }
+// Eigen::Matrix4f InitCalib::particle2RT(Particle *p)
+// {
+//     Eigen::Matrix4f RT;
     
-    Eigen::Vector3f ea(p->x[3], p->x[4], p->x[5]);
-    Eigen::Matrix3f rotate_matrix3;
-    rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
-                     Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
-                     Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
-    RT.block(0, 0, 3, 3) = rotate_matrix3;            
-    RT(0, 3) = p->x[0];
-    RT(1, 3) = p->x[1];
-    RT(2, 3) = p->x[2];
-    RT.row(3) << 0, 0, 0, 1;
+//     Eigen::Vector3f ea(p->x[3], p->x[4], p->x[5]);
+//     Eigen::Matrix3f rotate_matrix3;
+//     rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
+//                      Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
+//                      Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
+//     RT.block(0, 0, 3, 3) = rotate_matrix3;            
+//     RT(0, 3) = p->x[0];
+//     RT(1, 3) = p->x[1];
+//     RT(2, 3) = p->x[2];
+//     RT.row(3) << 0, 0, 0, 1;
 
-    return RT;
-}
+//     return RT;
+// }
 
-Eigen::Matrix4f InitCalib::particle2RT(double *p)
-{
-    Eigen::Matrix4f RT;
+// Eigen::Matrix4f InitCalib::particle2RT(double *p)
+// {
+//     Eigen::Matrix4f RT;
     
-    Eigen::Vector3f ea(p[3], p[4], p[5]);
-    Eigen::Matrix3f rotate_matrix3;
-    rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
-                     Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
-                     Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
-    RT.block(0, 0, 3, 3) = rotate_matrix3;            
-    RT(0, 3) = p[0];
-    RT(1, 3) = p[1];
-    RT(2, 3) = p[2];
-    RT.row(3) << 0, 0, 0, 1;
+//     Eigen::Vector3f ea(p[3], p[4], p[5]);
+//     Eigen::Matrix3f rotate_matrix3;
+//     rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
+//                      Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
+//                      Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
+//     RT.block(0, 0, 3, 3) = rotate_matrix3;            
+//     RT(0, 3) = p[0];
+//     RT(1, 3) = p[1];
+//     RT(2, 3) = p[2];
+//     RT.row(3) << 0, 0, 0, 1;
 
-    return RT;
-}
+//     return RT;
+// }
 
-Eigen::Matrix4f InitCalib::particle2RT(std::vector<double> p)
-{
-    Eigen::Matrix4f RT;
+// Eigen::Matrix4f InitCalib::particle2RT(std::vector<double> p)
+// {
+//     Eigen::Matrix4f RT;
     
-    Eigen::Vector3f ea(p[3], p[4], p[5]);
-    Eigen::Matrix3f rotate_matrix3;
-    rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
-                     Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
-                     Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
-    RT.block(0, 0, 3, 3) = rotate_matrix3;            
-    RT(0, 3) = p[0];
-    RT(1, 3) = p[1];
-    RT(2, 3) = p[2];
-    RT.row(3) << 0, 0, 0, 1;
+//     Eigen::Vector3f ea(p[3], p[4], p[5]);
+//     Eigen::Matrix3f rotate_matrix3;
+//     rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
+//                      Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
+//                      Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
+//     RT.block(0, 0, 3, 3) = rotate_matrix3;            
+//     RT(0, 3) = p[0];
+//     RT(1, 3) = p[1];
+//     RT(2, 3) = p[2];
+//     RT.row(3) << 0, 0, 0, 1;
 
-    return RT;
-}
+//     return RT;
+// }
 
-double InitCalib::fitnessFunction(Particle& p){
-    float fitness = 0;
-    Eigen::Matrix4f RT = particle2RT(&p);
+// double InitCalib::fitnessFunction(Particle& p){
+//     float fitness = 0;
+//     Eigen::Matrix4f RT = particle2RT(&p);
 
-    fitness = countScore(pc_feature, distance_image, RT, camera_param);
+//     fitness = countScore(pc_feature, distance_image, RT, camera_param);
 
-    return fitness;
-}
+//     return fitness;
+// }
 
-InitCalib::InitCalib()
-{
-}
+// InitCalib::InitCalib()
+// {
+// }
 

@@ -1011,7 +1011,7 @@ int main() {
     std::vector<double> upper_bound = config["particle_space"]["upper_bound"].as<std::vector<double>>();
     ParticleSpace space{dimension, lower_bound, upper_bound};
     // 定义粒子群
-    int swarm_size = config["swarm"]["swarm_size"].as<int>();
+    int swarm_size = config["particle_swarm"]["swarm_size"].as<int>();
     ParticleSwarm* swarm = new ParticleSwarm(swarm_size, space);
     // 创建一个位置速度更新器
     double inertia_weight = config["move_mode"]["inertia_weight"].as<double>();
