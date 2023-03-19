@@ -78,8 +78,28 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
     return score;
 }
 
+Eigen::Matrix4f position2RT(double* p)
+{
+    Eigen::Matrix4f RT;
+    
+    Eigen::Vector3f ea(p[3], p[4], p[5]);
+    Eigen::Matrix3f rotate_matrix3;
+    rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
+                     Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
+                     Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
+    RT.block(0, 0, 3, 3) = rotate_matrix3;            
+    RT(0, 3) = p[0];
+    RT(1, 3) = p[1];
+    RT(2, 3) = p[2];
+    RT.row(3) << 0, 0, 0, 1;
 
+    return RT;
+}
 
+Eigen::Matrix4f particle2RT(const Particle &p)
+{
+    return position2RT(p.x);
+}
 
 InitCalib::InitCalib(int _dimension, int _particlenumber, const std::string config_dir, double _result_threshold, double _w, double _cp, double _cg, double _wall, int _time_to_end)
     : PsoAlgorithm(_dimension, _particlenumber, _result_threshold, _w, _cp, _cg, _wall, _time_to_end) {
@@ -154,7 +174,7 @@ void InitCalib::set_initial_particle()
     initial_particle->x[4] = eulerAngle1[1];
     initial_particle->x[5] = eulerAngle1[2];
     
-    initial_particle->fitness = fitnessFunction((*initial_particle));
+    initial_particle->pbest_fitness = fitnessFunction((*initial_particle));
 
 }
 void InitCalib::set_initial_particle(Eigen::Matrix4f _initial_T)
@@ -230,6 +250,24 @@ void InitCalib::set_distance_img(const std::string img_dir)
     distance_image = cv::imread(img_dir);
 }
 
+
+Eigen::Matrix4f InitCalib::particle2RT(const Particle& p)
+{
+    Eigen::Matrix4f RT;
+    
+    Eigen::Vector3f ea(p.x[3], p.x[4], p.x[5]);
+    Eigen::Matrix3f rotate_matrix3;
+    rotate_matrix3 = Eigen::AngleAxisf(ea[0], Eigen::Vector3f::UnitX()) * 
+                     Eigen::AngleAxisf(ea[1], Eigen::Vector3f::UnitY()) * 
+                     Eigen::AngleAxisf(ea[2], Eigen::Vector3f::UnitZ());
+    RT.block(0, 0, 3, 3) = rotate_matrix3;            
+    RT(0, 3) = p.x[0];
+    RT(1, 3) = p.x[1];
+    RT(2, 3) = p.x[2];
+    RT.row(3) << 0, 0, 0, 1;
+
+    return RT;
+}
 Eigen::Matrix4f InitCalib::particle2RT(Particle *p)
 {
     Eigen::Matrix4f RT;

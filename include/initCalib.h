@@ -50,52 +50,32 @@
 float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv::Mat distance_image,
                  Eigen::Matrix4f RT, Eigen::Matrix3f camera_param);
 
-class InitCalib : public PsoAlgorithm {
-private:
-    YAML::Node config;  // 算法配置文件
-    bool read_configs();
+// 粒子位置转换为RT矩阵
+Eigen::Matrix4f position2RT(double* p);
+
+// 粒子转换为RT矩阵
+Eigen::Matrix4f particle2RT(const Particle& p);
+
+class CalibProblem : public BaseProblem{
 public:
+    // 计算fitness值所需的参数
     cv::Mat distance_image;
     Eigen::Matrix3f camera_param; // 相机内参
-    Eigen::Matrix4f initial_T;  // 待优化的外参矩阵T
-    Eigen::Matrix3f initial_R;  // 待优化的外参矩阵R
-    Particle *initial_particle;  // 未优化的初始粒子
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature; // 点云特征
 
-    Particle* get_initial_partical();
-
-    // 从初始外参矩阵获取初始粒子
-    void set_initial_particle();
-    void set_initial_particle(Eigen::Matrix4f initial_T);
-
-    // 给初始粒子加偏差(测试用函数)
-    void bias_initial_particle();
-
-    // 设置搜寻范围
-    using PsoAlgorithm::setSearchScope;
-    void setSearchScope(std::vector<double> search_scope, double maxspeedratio = 0.15);
-    
-    // 获得点云信息
-    void set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr _pc_feature);
-
-    // 获得图片信息
-    void set_distance_img(cv::Mat _distance_img);
-    void set_distance_img(const std::string img_dir);
-
-    // 从粒子信息提取RT矩阵
-    static Eigen::Matrix4f particle2RT(Particle* p);
-    static Eigen::Matrix4f particle2RT(double *p);
-    static Eigen::Matrix4f particle2RT(std::vector<double> p);
-    
-    // 点云投影获取fitness值
-    double fitnessFunction(Particle &p);
-
-    // 构造函数
-    InitCalib();
-    InitCalib(int _dimension, int _particlenumber, const std::string config_dir,
-                 double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);
-    InitCalib(int _dimension, int _particlenumber, YAML::Node config, 
-                 double _result_threshold = 0.8, double _w = 0.9, double _cp = 1.6, double _cg = 2, double _wall = 0.8, int _time_to_end = 5);
+    // 重写fitness函数
+    double CalculateFitness (Particle &p) override {
+        return countScore(pc_feature, distance_image, particle2RT(p), camera_param);
+    };
+    void set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr _pc_feature){
+        pc_feature = _pc_feature;
+    };
+    void set_distance_img(cv::Mat _distance_img){
+        distance_image = _distance_img;
+    };
+    void set_camera_param(Eigen::Matrix3f _camera_param){
+        camera_param = _camera_param;
+    };
 };
 
 #endif

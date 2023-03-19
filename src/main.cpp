@@ -904,21 +904,21 @@ void project2image(pcl::PointCloud<pcl::PointXYZI>::Ptr pc, cv::Mat raw_image, c
     }
 }
 
+
 int main() {
     std::ofstream result_txt("results/result.txt", ios::app);
     result_txt << "The beginning of the PSO!!!!\n" << endl;
 
     YAML::Node config = YAML::LoadFile("configs/config0.yaml");
-
+    
+    // 读取相机内参
+    Eigen::Matrix3f camera_param;
+    camera_param << config["fx"].as<float>(), 0, config["cx"].as<float>(),
+        0, config["fy"].as<float>(), config["cy"].as<float>(),
+        0, 0, 1;
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_source(new pcl::PointCloud<pcl::PointXYZI>);
     getPointcloud("./res/bin/0000000000.bin", pc_source);
-
-    // pcl::visualization::PCLVisualizer viewer("test viewer");
-    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> test_color(pc_source, 0, 255, 0);
-    // viewer.setBackgroundColor(0, 0, 0);
-    // viewer.addPointCloud(pc_source, test_color, "testpcd");
-    // viewer.spin();
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_filtered(pc_source);
     pcl::PassThrough<pcl::PointXYZI> pass_filter;
@@ -939,12 +939,6 @@ int main() {
     pass_filter.setFilterFieldName("z");
     pass_filter.setFilterLimits(z_min, z_max);
     pass_filter.filter(*pc_filtered);
-
-    // pcl::visualization::PCLVisualizer filtered_viewer("pc_filtered");
-    // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> filtered_color(pc_filtered, 0, 255, 0);
-    // filtered_viewer.setBackgroundColor(0, 0, 0);
-    // filtered_viewer.addPointCloud(pc_filtered, filtered_color, "pc_filtered");
-    // filtered_viewer.spin();
 
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature(new pcl::PointCloud<pcl::PointXYZI>);
     extract_pc_feature(pc_filtered, pc_feature, config);
@@ -995,70 +989,72 @@ int main() {
     // cv::waitKey();
 
 
-    // 开始构造PSO优化
-    int particle_num = config["particle_num"].as<int>();
-    InitCalib initcalib(6, particle_num, "configs/config0.yaml");
-    initcalib.set_distance_img(distance_img);
-    initcalib.set_pc_feature(pc_feature);
-    initcalib.set_initial_particle();
-    // initcalib.bias_initial_particle();
-    std::vector<double> search_scope = config["search_scope"].as<std::vector<double>>();
-    initcalib.setSearchScope(search_scope);
-
-    // 从配置文件中读取优化参数
-    initcalib.setw(config["w"].as<double>());
-    initcalib.setcp(config["cp"].as<double>());
-    initcalib.setcg(config["cg"].as<double>());
-    initcalib.setwall(config["wall"].as<double>());
-    initcalib.setmaxspeedratio(config["maxspeedratio"].as<double>());
     
-    initcalib.initial();
+    // cv::Mat img_before_pso;
+    // cout << initcalib.particle2RT(initcalib.get_initial_partical()) << endl;
+    // cout << initcalib.camera_param << endl;
+    // cout << initcalib.get_initial_partical()->pbest_fitness << endl;
+    // for(int i = 0; i < 6; ++i) cout << initcalib.get_initial_partical()->x[i] << " ";
+    // cout << endl;
+
+    // result_txt << "Initial_T:\n" << initcalib.particle2RT(initcalib.get_initial_partical()) << endl;
+    // result_txt << "Camera_param:\n" << initcalib.camera_param << endl;
+    // result_txt << "Initial_fitness:\n" << initcalib.get_initial_partical()->pbest_fitness << endl;
+
+    // project2image(pc_feature, distance_img, img_before_pso, 
+    //                     initcalib.particle2RT(initcalib.get_initial_partical()), initcalib.camera_param);
+    // cv::imwrite("results/project_imgs/before_pso.jpg", img_before_pso);
+
+    // 定义粒子空间
+    int dimension = config["particle_space"]["dimension"].as<int>();
+    std::vector<double> lower_bound = config["particle_space"]["lower_bound"].as<std::vector<double>>();
+    std::vector<double> upper_bound = config["particle_space"]["upper_bound"].as<std::vector<double>>();
+    ParticleSpace space{dimension, lower_bound, upper_bound};
+    // 定义粒子群
+    int swarm_size = config["swarm"]["swarm_size"].as<int>();
+    ParticleSwarm* swarm = new ParticleSwarm(swarm_size, space);
+    // 创建一个位置速度更新器
+    double inertia_weight = config["move_mode"]["inertia_weight"].as<double>();
+    double personal_weight = config["move_mode"]["personal_weight"].as<double>();
+    double social_weight = config["move_mode"]["social_weight"].as<double>();
+    double max_velocity = config["move_mode"]["max_velocity"].as<double>();
+    double rebound_decay = config["move_mode"]["rebound_decay"].as<double>();
+    MoveMode* move_mode = new MoveMode(inertia_weight, personal_weight, social_weight, max_velocity, rebound_decay);
+    // 创建一个要解决的问题
+    CalibProblem* calib_problem = new CalibProblem();
+    calib_problem->set_distance_img(distance_img);
+    calib_problem->set_pc_feature(pc_feature);
+    calib_problem->set_camera_param(camera_param);
+    // 创建一个优化器
+    BaseOptimizer* optimizer = new BaseOptimizer(calib_problem, move_mode);
+    // 创建一个PSO优化器
+    BasePSO* pso_calib = new BasePSO(swarm, optimizer);
+    // PSO算法冷启动
+    pso_calib->initPSO();
+    cout << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << endl;
+    cout << "init_position: ";
+    for(int i = 0; i < 6; ++i) cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
     
-    cv::Mat img_before_pso;
-    cout << initcalib.particle2RT(initcalib.get_initial_partical()) << endl;
-    cout << initcalib.camera_param << endl;
-    cout << initcalib.get_initial_partical()->fitness << endl;
-    for(int i = 0; i < 6; ++i) cout << initcalib.get_initial_partical()->x[i] << " ";
-    cout << endl;
-
-    result_txt << "Initial_T:\n" << initcalib.particle2RT(initcalib.get_initial_partical()) << endl;
-    result_txt << "Camera_param:\n" << initcalib.camera_param << endl;
-    result_txt << "Initial_fitness:\n" << initcalib.get_initial_partical()->fitness << endl;
-
-    project2image(pc_feature, distance_img, img_before_pso, 
-                        initcalib.particle2RT(initcalib.get_initial_partical()), initcalib.camera_param);
-    cv::imwrite("results/project_imgs/before_pso.jpg", img_before_pso);
-
-    std::vector<double> temp_position(6, 0);
+    // PSO算法迭代优化
+    double temp_fitness = pso_calib->particle_swarm_->gbest_fitness; // 有隐患，可能存在position不同但fitness相同的情况
     for(int i = 0; i < config["search_loops"].as<int>(); ++i){
-        initcalib.search_once();
+        pso_calib->step();
         cout << "\nROUND " << i << "!" << endl;
-        if (initcalib.result_position == temp_position) {
-            cout << "result_position is not changed!" << endl;
+        if (pso_calib->particle_swarm_->gbest_fitness == temp_fitness) {
+            cout << "result_fitness is not changed!" << endl;
             continue;
         }
-        temp_position = initcalib.result_position;
+        temp_fitness = pso_calib->particle_swarm_->gbest_fitness;
         cout << "搜索后结果" << endl;
-        for(int i = 0; i < 6; ++i) cout << initcalib.result_position[i] << " ";
-        cout << endl;
-        cout << "result_fitness:" << initcalib.result_fitness << endl;
-        cout << "countScore:" << countScore(pc_feature, distance_img, 
-                    initcalib.particle2RT(initcalib.result_position), initcalib.camera_param) << endl;
+        cout << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << endl;
+        cout << "result_position:";
+        for(int i = 0; i < 6; ++i) cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
+        
         cv::Mat test1;
         project2image(pc_feature,distance_img, test1, 
-                            initcalib.particle2RT(initcalib.result_position), initcalib.camera_param);
+                        position2RT(pso_calib->particle_swarm_->gbest_position), camera_param);
         cv::imwrite("results/project_imgs/" + std::to_string(i) + ".jpg", test1);
     }
-    // initcalib.set_initial_particle();
-
-    // initcalib.setSearchScope(initcalib.initial_particle, bias);
-
-    // initcalib.set_pc_feature(pc_source, initcalib.pc_feature);
-
-    // initcalib.initial();
-    // initcalib.search_once();
-
-    
     
     result_txt.close();
     
