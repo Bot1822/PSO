@@ -41,11 +41,18 @@
 
 #include <Eigen/Core>
 #include "pso.h"
-// #include "auto_calib.h"
 #include <iostream>
 #include <yaml.h>
 
-#define PI (3.1415926535897932346f)
+
+// 读取指定路径的点云bin文件，并转换为pcl::PointCloud<pcl::PointXYZI>::Ptr
+void getPointCloud(const std::string& path, pcl::PointCloud<pcl::PointXYZI>::Ptr& point_cloud);
+
+// 限制点云范围到指定空间
+void limitPointCloud(pcl::PointCloud<pcl::PointXYZI>::Ptr& point_cloud, float x_min, float x_max, float y_min, float y_max, float z_min, float z_max);
+
+// 提取点云特征
+void extractPCFeature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<pcl::PointXYZI>::Ptr &pc_feature, YAML::Node config);
 
 float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv::Mat distance_image,
                  Eigen::Matrix4f RT, Eigen::Matrix3f camera_param);
@@ -55,6 +62,9 @@ Eigen::Matrix4f position2RT(double* p);
 
 // 粒子转换为RT矩阵
 Eigen::Matrix4f particle2RT(const Particle& p);
+
+// RT矩阵转换为粒子位置
+void RT2position(const Eigen::Matrix4f& RT, double* p);
 
 class CalibProblem : public BaseProblem{
 public:

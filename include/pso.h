@@ -65,13 +65,37 @@ class ParticleSwarm
         initParticleSwarm();
     };
 
+    // 获取粒子位置均值与标准差
+    void getParticleMeanAndStd(std::vector<double> &mean, std::vector<double> &stddeviation) {
+        mean.resize(particle_space_.dimension, 0);
+        stddeviation.resize(particle_space_.dimension, 0);
+        for (Particle &particle : particles) {
+            for (int i = 0; i < particle_space_.dimension; i++) {
+                mean[i] += particle.x[i];
+            }
+        }
+        for (int i = 0; i < particle_space_.dimension; i++) {
+            mean[i] /= particles.size();
+        }
+        for (Particle &particle : particles) {
+            for (int i = 0; i < particle_space_.dimension; i++) {
+                stddeviation[i] += (particle.x[i] - mean[i]) * (particle.x[i] - mean[i]);
+            }
+        }
+        for (int i = 0; i < particle_space_.dimension; i++) {
+            stddeviation[i] = sqrt(stddeviation[i] / particles.size());
+        }
+    };
+
     // 构造函数
     ParticleSwarm(int particle_number) {
         particles.resize(particle_number);
+        gbest_position = new double[particle_space_.dimension];
     };
     ParticleSwarm(int particle_number, const ParticleSpace &particle_space) 
     : particle_space_(particle_space){
         particles.resize(particle_number);
+        gbest_position = new double[particle_space_.dimension];
         initParticleSwarm();
     };
     // 析构函数
@@ -81,6 +105,8 @@ class ParticleSwarm
             delete[] particle.x;
             delete[] particle.v;
         }
+        std::cout << "Deleting gbest_position..." << std::endl;
+        delete[] gbest_position;
     };
 };
 

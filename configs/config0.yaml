@@ -4,12 +4,7 @@ search_r2: 1.0
 search_num2: 1
 search_r3: 10
 search_num3: 1
-x_max: 300.0
-x_min: 5 #-1 # 1
-y_min: -40
-y_max: 40
-z_min: -2.5
-z_max: 5
+
 dis_threshold: 12 #3 the bigger the more points 60 90
 angle_threshold: 100 #100 not used
 deep_config: 80
@@ -127,6 +122,18 @@ rz2: -0.6
 t032: -0.1040698 #-0.004069766   -0.0640698 -0.19407
 t132: -0.1063162 #-0.07631618  -0.156316 -0.176316
 t232: -0.281781 #-0.2717806 -0.311781 -0.371781
+
+x_max: 300.0
+x_min: 5 #-1 # 1
+y_min: -40
+y_max: 40
+z_min: -2.5
+z_max: 5
+
+
+result_path: results/result.txt
+point_cloud_path: ./res/bin/0000000000.bin
+image_path: ./res/semantic_imgs/0000000000.png
 
 bias_particle: [0, 0, 0, 0, 0, 0]
 normalize_inside: 300

@@ -46,7 +46,6 @@ message(STATUS "${yaml-cpp_CONFIG}")
 include_directories(/usr/local/include/yaml-cpp)
 
 # OpenCV
-SET(OpenCV_DIR /opt/ros/kinetic/include/opencv-3.3.1-dev)
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 message(STATUS "${OpenCV_CONFIG}")

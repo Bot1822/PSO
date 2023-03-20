@@ -2,827 +2,30 @@
 #include <fstream>
 #include <vector>
 
-bool getPointcloud(std::string filename, pcl::PointCloud<pcl::PointXYZI>::Ptr ptcloud)
+// 重载<<运算符，方便输出std::vector
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
-    // Load the actual pointcloud.
-    const size_t kMaxNumberOfPoints = 1e6; // From Readme for raw files.
-    ptcloud->clear();
-    ptcloud->reserve(kMaxNumberOfPoints);
-    std::ifstream input(filename, std::ios::in | std::ios::binary);
-    if (!input)
+    os << "[";
+    for (int i = 0; i < v.size(); i++)
     {
-        std::cout << "Could not open pointcloud file.\n";
-        return false;
+        os << v[i];
+        if (i != v.size() - 1)
+            os << ", ";
     }
-
-    for (size_t i = 0; input.good() && !input.eof(); i++)
-    {
-        pcl::PointXYZI point;
-        input.read((char *)&point.x, 3 * sizeof(float));
-        input.read((char *)&point.intensity, sizeof(float));
-        ptcloud->push_back(point);
-    }
-    input.close();
-    return true;
+    os << "]";
+    return os;
 }
 
-void extract_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<pcl::PointXYZI>::Ptr &pc_feature, YAML::Node config)
-{
-    float upperBound = config["upperBound"].as<float>();
-    float lowerBound = config["lowerBound"].as<float>();
-    int rings = config["rings"].as<int>();
-    float factor_t = ((upperBound - lowerBound) / (rings - 1));
-    float factor = ((rings - 1) / (upperBound - lowerBound));
-    YAML::Node local_config = config["extract_pc_edges"];
-    float dis_threshold = config["dis_threshold"].as<float>();
-
-    std::vector<std::vector<float>> pc_image; //��ά��Vector
-    std::vector<std::vector<float>> pc_image_copy;
-    pc_image.resize(1000);
-    pc_image_copy.resize(1000); //��һά��1000
-    // resize img and set to -1
-    for (int i = 0; i < pc_image.size(); i++) //ÿһ���״�����64����
-    {
-        pc_image[i].resize(rings);
-        pc_image_copy[i].resize(rings);
-        for (int j = 0; j < pc_image[i].size(); j++)
-            pc_image[i][j] = -1;
-    }
-    // convert pointcloud from 3D to 2D img
-    for (size_t i = 0; i < pc->size(); i++) //����ֻ�����˵���ת����ͼ��
-    {
-        float theta = 0;
-        if (pc->points[i].y == 0)
-            theta = 90.0;
-        else if (pc->points[i].y > 0)
-        {
-            float tan_theta = pc->points[i].x / pc->points[i].y;
-            theta = 180 * std::atan(tan_theta) / M_PI;
-        }
-        else
-        {
-            float tan_theta = -pc->points[i].y / pc->points[i].x;
-            theta = 180 * std::atan(tan_theta) / M_PI;
-            theta = 90 + theta;
-        }
-        int col = cvFloor(theta / 0.18); // theta [0, 180] ==> [0, 1000]
-        if (col < 0 || col > 999)
-            continue;
-        float hypotenuse = std::sqrt(std::pow(pc->points[i].x, 2) + std::pow(pc->points[i].y, 2));
-        float angle = std::atan(pc->points[i].z / hypotenuse);
-        int ring_id = int(((angle * 180 / M_PI) - lowerBound) * factor + 0.5); 
-        if (ring_id < 0 || ring_id > rings - 1)
-            continue;
-        float dist = std::sqrt(std::pow(pc->points[i].y, 2) + std::pow(pc->points[i].x, 2) + std::pow(pc->points[i].z, 2));
-        if (dist < 2)
-            continue; //10
-        if (pc_image[col][ring_id] == -1)
-        {
-            pc_image[col][ring_id] = dist; //range
-        }
-        else if (dist < pc_image[col][ring_id])
-        {
-            pc_image[col][ring_id] = dist; //set the nearer point
-        }
-    }
-
-    // copy
-    for (int i = 0; i < pc_image.size(); i++) 
-    {
-        for (int j = 0; j < pc_image[i].size(); j++)
-            pc_image_copy[i][j] = pc_image[i][j];
-    }
-    for (int i = 1; i < rings - 1; i++)
-    {
-        for (int j = 1; j < pc_image.size() - 1; j++)
-        {
-            float sum_dis = 0.0;
-            int sum_n = 0;
-            float far_sum_dis = 0.0;
-            int far_sum_n = 0;
-            float near_sum_dis = 0.0;
-            int near_sum_n = 0;
-            if (pc_image_copy[j - 1][i - 1] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j - 1][i - 1] - pc_image[j][i] > dis_threshold)
-                    { //������ڵ�ȴ˵�Զ��һ����ֵ
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j - 1][i - 1];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j - 1][i - 1] > dis_threshold)
-                    { //����˵�����ڵ�Զ��һ����ֵ
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j - 1][i - 1];
-                    }
-                }
-                sum_dis += pc_image_copy[j - 1][i - 1];
-                sum_n++;
-            }
-            if (pc_image_copy[j - 1][i] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j - 1][i] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j - 1][i];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j - 1][i] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j - 1][i];
-                    }
-                }
-                sum_dis += pc_image_copy[j - 1][i];
-                sum_n++;
-            }
-            if (pc_image_copy[j - 1][i + 1] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j - 1][i + 1] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j - 1][i + 1];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j - 1][i + 1] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j - 1][i + 1];
-                    }
-                }
-                sum_dis += pc_image_copy[j - 1][i + 1];
-                sum_n++;
-            }
-            if (pc_image_copy[j][i - 1] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j][i - 1] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j][i - 1];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j][i - 1] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j][i - 1];
-                    }
-                }
-                sum_dis += pc_image_copy[j][i - 1];
-                sum_n++;
-            }
-            if (pc_image_copy[j][i + 1] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j][i + 1] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j][i + 1];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j][i + 1] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j][i + 1];
-                    }
-                }
-                sum_dis += pc_image_copy[j][i + 1];
-                sum_n++;
-            }
-            if (pc_image_copy[j + 1][i - 1] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j + 1][i - 1] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j + 1][i - 1];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j + 1][i - 1] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j + 1][i - 1];
-                    }
-                }
-                sum_dis += pc_image_copy[j + 1][i - 1];
-                sum_n++;
-            }
-            if (pc_image_copy[j + 1][i] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j + 1][i] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j + 1][i];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j + 1][i] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j + 1][i];
-                    }
-                }
-                sum_dis += pc_image_copy[j + 1][i];
-                sum_n++;
-            }
-            if (pc_image_copy[j + 1][i + 1] != -1)
-            {
-                if (pc_image[j][i] != -1)
-                {
-                    if (pc_image_copy[j + 1][i + 1] - pc_image[j][i] > dis_threshold)
-                    {
-                        far_sum_n++;
-                        far_sum_dis += pc_image_copy[j + 1][i + 1];
-                    }
-                    else if (pc_image[j][i] - pc_image_copy[j + 1][i + 1] > dis_threshold)
-                    {
-                        near_sum_n++;
-                        near_sum_dis += pc_image_copy[j + 1][i + 1];
-                    }
-                }
-                sum_dis += pc_image_copy[j + 1][i + 1];
-                sum_n++;
-            }
-            if (sum_n >= 5 && pc_image[j][i] == -1)
-            {                                     //>=5
-                pc_image[j][i] = sum_dis / sum_n; //�����Χ�㶼�в��Ҵ˵��?-1������?ƽ��
-                continue;
-            }
-            if (near_sum_n > sum_n / 2)
-            {
-                pc_image[j][i] = near_sum_dis / near_sum_n; //�����Χ����ȴ˵��??
-            }
-            if (far_sum_n > sum_n / 2)
-            {
-                pc_image[j][i] = far_sum_dis / far_sum_n; //�����Χ����ȴ˵�Զ
-            }
-        }
-    }
-
-    //pc_image data structure
-    //  **
-    //  **   1000*64
-    //  **
-
-    //�����Χ�ĵ㶼�?-1��Ϊ-1
-    //   *
-    //  *#*
-    //   *
-    for (int i = 0; i < rings; i++)
-    {
-        if (i == 0)
-        { //������һ��
-            for (int j = 0; j < pc_image.size(); j++)
-            {
-                if (j == 0)
-                { //����pc_image��һ��
-                    if (pc_image[j][i + 1] == -1 && pc_image[j + 1][i] == -1)
-                        pc_image[j][i] = -1;              //�����һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i]; //����Ϊpc_image
-                }
-                else if (j == pc_image.size() - 1)
-                { //����pc_image���һ��??
-                    if (pc_image[j][i + 1] == -1 && pc_image[j - 1][i] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-                else
-                {
-                    if (pc_image[j][i + 1] == -1 && pc_image[j - 1][i] == -1 && pc_image[j + 1][i] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-            }
-        }
-        else if (i == rings - 1)
-        { //�������һ��??
-            for (int j = 0; j < pc_image.size(); j++)
-            {
-                if (j == 0)
-                {
-                    if (pc_image[j][i - 1] == -1 && pc_image[j + 1][i] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-                else if (j == pc_image.size() - 1)
-                {
-                    if (pc_image[j][i - 1] == -1 && pc_image[j - 1][i] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-                else
-                {
-                    if (pc_image[j][i - 1] == -1 && pc_image[j - 1][i] == -1 && pc_image[j + 1][i] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-            }
-        }
-        else
-        {
-            for (int j = 0; j < pc_image.size(); j++)
-            {
-                if (j == 0)
-                {
-                    if (pc_image[j][i - 1] == -1 && pc_image[j + 1][i] == -1 && pc_image[j][i + 1] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�к���һ�ж��?-1.��Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-                else if (j == pc_image.size() - 1)
-                {
-                    if (pc_image[j][i - 1] == -1 && pc_image[j - 1][i] == -1 && pc_image[j][i + 1] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-                else
-                {
-                    if (pc_image[j][i + 1] == -1 && pc_image[j][i - 1] == -1 && pc_image[j - 1][i] == -1 && pc_image[j + 1][i] == -1)
-                        pc_image[j][i] = -1; //�����һ�к���һ�к���һ�к���һ�ж��?-1����Ϊ-1
-                    pc_image_copy[j][i] = pc_image[j][i];
-                }
-            }
-        }
-    }
-
-    for (int i = 0; i < rings; i++)
-    {
-        for (int j = 1; j < pc_image.size() - 1; j++)
-        {
-            if (pc_image[j][i] == -1)
-            { //����˵��?-1������һ�к���һ�ж���Ϊ-1��ȡ��һ�л���һ�н�С���Ǹ�
-                if (pc_image_copy[j - 1][i] != -1 && pc_image_copy[j + 1][i] != -1)
-                {
-                    pc_image[j][i] = pc_image_copy[j - 1][i] > pc_image_copy[j + 1][i] ? pc_image_copy[j + 1][i] : pc_image_copy[j - 1][i];
-                }
-            }
-        }
-    }
-
-    // cv::Mat pc_img = cv::Mat::zeros();
-
-    std::vector<std::vector<float>> mk_rings;
-    for (int j = 0; j < pc_image.size(); j++)
-    { //1000
-        std::vector<float> mk_ring;
-        mk_ring.clear();
-        for (int i = 0; i < rings; i++)
-        {
-            // if(pc_image[j][i] != -1)//������в�����??-1�ĵ�
-            {
-                mk_ring.push_back(pc_image[j][i]); //�洢һ��rings����������
-                // mk_ring.push_back(j);
-            }
-        }
-        mk_rings.push_back(mk_ring); //�洢1000����
-    }
-    // std::cout<<"0"<<std::endl;
-
-    //pc_image data structure  ��ֱ����
-    //  **
-    //  **   1000*64
-    //  **
-    for (int i = 0; i < rings; i++) //i<64
-    {
-        std::vector<float> mk;
-        for (int j = 0; j < pc_image.size(); j++)
-        { //j<1000
-            if (pc_image[j][i] != -1)
-            {                                 //������в�����??-1�ĵ�
-                mk.push_back(pc_image[j][i]); //�����??(index: 0 2 4 6 ...)
-                mk.push_back(j);              //�����?? 0-999(index: 1 3 5 7 ...)
-            }
-        }
-        if (mk.size() < 6)
-            continue;
-
-#define DIS 0.1
-        for (int j = 1; j < (mk.size() / 2) - 1; j++)
-        { //mk��size����һ��(1000)���в�����-1�ĸ�����2
-            // if(mk[(j-1)*2]!=-1 && (
-            if (
-                // mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
-                // mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
-                ((mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())) || // && std::abs(mk[(j-1)*2+1]-mk[(j)*2+1])==1) || //ˮƽ��ߵ����˵����һ����ֵ(��������)
-                ((mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())) || //&& std::abs(mk[(j+1)*2+1]-mk[(j)*2+1])==1) || //ˮƽ�ұߵ����˵����һ�����?(��������)
-                // mk[j*2+1] - mk[(j-1)*2+1] > local_config["angle_pixel_dis"].as<int>() || //ˮƽ�ǶȾ������һ�����?
-                // mk[(j+1)*2+1] - mk[j*2+1] > local_config["angle_pixel_dis"].as<int>() ||
-                local_config["show_all"].as<bool>())
-            {
-
-                if (i == 0) // bottom
-                {
-                    // �м����� �� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    // ��
-                    //  **
-                    // #** ����
-                    //  **
-                    float cen = mk_rings[mk[2 * j + 1]][i];
-                    float up = mk_rings[mk[2 * j + 1]][i + 1];
-                    float lu = mk_rings[mk[2 * j - 1]][i + 1];
-                    float ru = mk_rings[mk[2 * j + 3]][i + 1];
-                    float uu = mk_rings[mk[2 * j + 1]][i + 2];
-                    float luu = mk_rings[mk[2 * j - 1]][i + 2];
-                    float ruu = mk_rings[mk[2 * j + 3]][i + 2];
-
-                    if ((abs(up - cen) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS) || (abs(uu - cen) > DIS && abs(luu - cen) > DIS && abs(ruu - cen) > DIS))
-                    {
-                        continue;
-                    }
-                }
-                if (i == 1)
-                {
-                    float cen = mk_rings[mk[2 * j + 1]][i];
-                    float up = mk_rings[mk[2 * j + 1]][i + 1];
-                    float dw = mk_rings[mk[2 * j + 1]][i - 1];
-                    float lu = mk_rings[mk[2 * j - 1]][i + 1];
-                    float ru = mk_rings[mk[2 * j + 3]][i + 1];
-                    float ld = mk_rings[mk[2 * j - 1]][i - 1];
-                    float rd = mk_rings[mk[2 * j + 3]][i - 1];
-                    float uu = mk_rings[mk[2 * j + 1]][i + 2];
-                    float luu = mk_rings[mk[2 * j - 1]][i + 2];
-                    float ruu = mk_rings[mk[2 * j + 3]][i + 2];
-                    // �м����� �� �� ���� ���� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    // * **
-                    // *#**  ->��
-                    // * **
-                    if ((abs(up - cen) > DIS && abs(cen - dw) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS) || (abs(uu - cen) > DIS && abs(luu - cen) > DIS && abs(ruu - cen) > DIS))
-                    {
-                        continue;
-                    }
-                }
-                if (i == rings - 1)
-                {
-                    float cen = mk_rings[mk[2 * j + 1]][i];
-                    float dw = mk_rings[mk[2 * j + 1]][i - 1];
-                    float ld = mk_rings[mk[2 * j - 1]][i - 1];
-                    float rd = mk_rings[mk[2 * j + 3]][i - 1];
-                    float dd = mk_rings[mk[2 * j + 1]][i - 2];
-                    float ldd = mk_rings[mk[2 * j - 1]][i - 2];
-                    float rdd = mk_rings[mk[2 * j + 3]][i - 2];
-
-                    // �м����� �� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    // **
-                    // **#  ->��
-                    // **
-                    if ((abs(cen - dw) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS) || (abs(dd - cen) > DIS && abs(ldd - cen) > DIS && abs(rdd - cen) > DIS))
-                    {
-                        continue;
-                    }
-                }
-                if (i == rings - 2)
-                {
-                    float cen = mk_rings[mk[2 * j + 1]][i];
-                    float up = mk_rings[mk[2 * j + 1]][i + 1];
-                    float dw = mk_rings[mk[2 * j + 1]][i - 1];
-                    float lu = mk_rings[mk[2 * j - 1]][i + 1];
-                    float ru = mk_rings[mk[2 * j + 3]][i + 1];
-                    float ld = mk_rings[mk[2 * j - 1]][i - 1];
-                    float rd = mk_rings[mk[2 * j + 3]][i - 1];
-                    float dd = mk_rings[mk[2 * j + 1]][i - 2];
-                    float ldd = mk_rings[mk[2 * j - 1]][i - 2];
-                    float rdd = mk_rings[mk[2 * j + 3]][i - 2];
-
-                    // �м����� �� �� ���� ���� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    // ** *
-                    // **#*  ->��
-                    // ** *
-                    if ((abs(up - cen) > DIS && abs(cen - dw) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS) || (abs(dd - cen) > DIS && abs(ldd - cen) > DIS && abs(rdd - cen) > DIS))
-                    {
-                        continue;
-                    }
-                }
-                // std::cout<<"1"<<std::endl;
-                if (i > 1 && i < rings - 2)
-                {
-                    // std::cout << "mk size = " << mk.size() << std::endl;
-                    // std::cout << "mk[(j+1)*2+1]  = " << mk[(j+1)*2+1] << std::endl;
-                    // std::cout << "rings size = " << mk_rings.size() << std::endl;
-                    // std::cout<<"j i = " << j << " " << i << std::endl;
-                    float cen = mk_rings[mk[2 * j + 1]][i];
-                    float up = mk_rings[mk[2 * j + 1]][i + 1];
-                    float dw = mk_rings[mk[2 * j + 1]][i - 1];
-                    float lu = mk_rings[mk[2 * j - 1]][i + 1];
-                    float ru = mk_rings[mk[2 * j + 3]][i + 1];
-                    float ld = mk_rings[mk[2 * j - 1]][i - 1];
-                    float rd = mk_rings[mk[2 * j + 3]][i - 1];
-                    float uu = mk_rings[mk[2 * j + 1]][i + 2];
-                    float dd = mk_rings[mk[2 * j + 1]][i - 2];
-                    float luu = mk_rings[mk[2 * j - 1]][i + 2];
-                    float ruu = mk_rings[mk[2 * j + 3]][i + 2];
-                    float ldd = mk_rings[mk[2 * j - 1]][i - 2];
-                    float rdd = mk_rings[mk[2 * j + 3]][i - 2];
-
-                    // std::cout << "cen = " << cen<<" "<<up << " "<<dw<<" "<<lu<<" "<<ru<<" "<<ld<<" "<<rd<<std::endl;
-                    // if(abs(mk_rings[mk[2*j+1]][i-1]-mk_rings[mk[2*j+1]][i])>0.2 || abs(mk_rings[mk[2*j+1]][i+1]-mk_rings[mk[2*j+1]][i])>0.2
-                    // ||  abs(mk_rings[mk[2*j+1]][i-2]-mk_rings[mk[2*j+1]][i])>0.24 || abs(mk_rings[mk[2*j+1]][i+2]-mk_rings[mk[2*j+1]][i])>0.24
-                    //    || abs(mk_rings[mk[2*j+1]][i+1]-mk_rings[mk[2*j+1]][i-1])>0.24 || abs(mk_rings[mk[2*j+1]][i+2]-mk_rings[mk[2*j+1]][i-2])>0.3
-                    // �м����� �� �� ���� ���� ���� ���� ������ֵ   ����    �м����� ���� ������ ������ ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    // ** **
-                    // **#**  ->��
-                    // ** **
-                    if ((abs(up - cen) > DIS && abs(cen - dw) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS) || (abs(uu - cen) > DIS && abs(luu - cen) > DIS && abs(ruu - cen) > DIS && abs(dd - cen) > DIS && abs(ldd - cen) > DIS && abs(rdd - cen) > DIS))
-                    {
-                        continue;
-                    }
-                }
-                // recover the point from distance, the layer, and angle of the point
-                pcl::PointXYZI p;
-                p.x = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180.0) * std::cos((mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180.0);
-                p.y = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180.0) * std::sin(-(mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180.0);
-                p.z = mk[(j)*2] * std::sin((i * factor_t + lowerBound) * M_PI / 180.0);
-                // i->64  j->1000   mk[dis,j, dis,j, ...]
-                //�ж�ˮƽ�����Ƿ����һ����ֵ��intensityȡ��ֵ�����һ���������в�ֵԽ�����Խ������һ����
-                if (mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() || mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())
-                {
-                    // if(mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>()){
-                    p.intensity = (mk[(j - 1) * 2] - mk[(j)*2]) > (mk[(j + 1) * 2] - mk[(j)*2]) ? (mk[(j - 1) * 2] - mk[(j)*2]) : (mk[(j + 1) * 2] - mk[(j)*2]); //ȡ��ֵ��ģ������ֵ
-                }
-                // TODO: ��ֱ����Ĳ�ֵ�浽intensity��
-                else if (mk[j * 2 + 1] - mk[(j - 1) * 2 + 1] > local_config["angle_pixel_dis"].as<int>() || mk[(j + 1) * 2 + 1] - mk[j * 2 + 1] > local_config["angle_pixel_dis"].as<int>())
-                {
-                    p.intensity = (mk[j * 2 + 1] - mk[(j - 1) * 2 + 1]) > (mk[(j + 1) * 2 + 1] - mk[j * 2 + 1]) ? (mk[j * 2 + 1] - mk[(j - 1) * 2 + 1]) : (mk[(j + 1) * 2 + 1] - mk[j * 2 + 1]); //ȡ��ֵ��ģ������ֵ
-                }
-                pc_feature->push_back(p); //delete horizontal features temply
-            }
-            else if (local_config["add_edge"].as<bool>())
-            {
-                if (i != 0 && i != rings - 1)
-                {
-                    if (pc_image[mk[j * 2 + 1]][i + 1] != -1 && pc_image[mk[j * 2 + 1]][i + 1] - pc_image[mk[j * 2 + 1]][i] > local_config["shuzhi_dis_th"].as<float>() * pc_image[mk[j * 2 + 1]][i])
-                    {
-                        pcl::PointXYZI p;
-                        p.x = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::cos((mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.y = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::sin(-(mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.z = mk[(j)*2] * std::sin((i * factor_t + lowerBound) * M_PI / 180);
-                        p.intensity = 0.5;
-                        pc_feature->push_back(p);
-                    }
-                    else if (pc_image[mk[j * 2 + 1]][i - 1] != -1 && pc_image[mk[j * 2 + 1]][i - 1] - pc_image[mk[j * 2 + 1]][i] > local_config["shuzhi_dis_th"].as<float>() * pc_image[mk[j * 2 + 1]][i])
-                    {
-                        pcl::PointXYZI p;
-                        p.x = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::cos((mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.y = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::sin(-(mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.z = mk[(j)*2] * std::sin((i * factor_t + lowerBound) * M_PI / 180);
-                        p.intensity = 0.5;
-                        pc_feature->push_back(p);
-                    }
-                }
-            }
-        }
-    }
-
-    //pc_image data structure  ˮƽ����
-    //  **
-    //  **   1000*64
-    //  **
-    for (int i = 0; i < pc_image.size(); i++) //i<1000
-    {
-        std::vector<float> mk;
-
-        for (int j = 0; j < rings; j++) //j<64
-        {
-            if (pc_image[i][j] != -1) //������в�����??-1�ĵ�
-            {
-                mk.push_back(pc_image[i][j]); //�����??(index: 0 2 4 6 ...)
-                mk.push_back(j);              //�����?? 0-64(index: 1 3 5 7 ...)
-            }                                 //������
-        }
-
-        if (mk.size() < 2)
-            continue;
-
-#define DIS 0.1
-        for (int j = 1; j < (mk.size() / 2) - 1; j++) //mk��size����һ��(64)���в�����-1�ĸ�����2
-        {                                             //j=1;j<64-1;j++
-            // if(mk[(j-1)*2]!=-1 && (
-            if (
-                // mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
-                // mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
-                ((mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() * 1.5)) || // && (std::abs(mk[(j-1)*2+1] - mk[(j)*2+1]) == 1 ))||//mk[(j)*2] / config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
-                ((mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() * 1.5)) || //&& (std::abs(mk[(j+1)*2+1] - mk[(j)*2+1]) == 1 ))||//mk[(j)*2] / config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
-                // mk[j*2+1] - mk[(j-1)*2+1] > local_config["angle_pixel_dis"].as<int>() || //ˮƽ�ǶȾ������һ�����?
-                // mk[(j+1)*2+1] - mk[j*2+1] > local_config["angle_pixel_dis"].as<int>() ||
-                local_config["show_all"].as<bool>())
-            {
-
-                // if(j == 0) // bottom
-                // {
-                //     // �м����� �� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                //     // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                //     //  **
-                //     // #**
-                //     //  **
-                //     float cen = mk_rings[i][mk[2*j+1]];
-                //     float up = mk_rings[i+1][mk[2*j+1]];
-                //     float lu = mk_rings[i+1][mk[2*j-1]];
-                //     float ru = mk_rings[i+1][mk[2*j+3]];
-                //     float uu = mk_rings[i+2][mk[2*j+1]];
-                //     float luu = mk_rings[i+2][mk[2*j-1]];
-                //     float ruu = mk_rings[i+2][mk[2*j+3]];
-
-                //     if( (abs(up-cen)>DIS&&abs(lu-cen)>DIS&&abs(ru-cen)>DIS)
-                //         || (abs(uu-cen)>DIS&&abs(luu-cen)>DIS&&abs(ruu-cen)>DIS)
-                //     )
-                //     {
-                //         continue;
-                //     }
-                // }
-
-                //          j=[dis,j,dis,j...]
-                //          ***
-                // i=1000   ***
-                //          ***
-                //          ***
-
-                if (j == 1 && i > 0 && i < pc_image.size() - 1)
-                {
-                    float cen = mk_rings[i][mk[2 * j + 1]];
-                    float up = mk_rings[i][mk[2 * j + 3]];
-                    float dw = mk_rings[i][mk[2 * j - 1]];
-                    float lu = mk_rings[i - 1][mk[2 * j + 3]];
-                    float lt = mk_rings[i - 1][mk[2 * j + 1]];
-                    float ru = mk_rings[i + 1][mk[2 * j + 3]];
-                    float rt = mk_rings[i + 1][mk[2 * j + 1]];
-                    float ld = mk_rings[i - 1][mk[2 * j - 1]];
-                    float rd = mk_rings[i + 1][mk[2 * j - 1]];
-                    float uu = mk_rings[i][mk[2 * j + 5]];
-                    float luu = mk_rings[i - 1][mk[2 * j + 5]];
-                    float ruu = mk_rings[i + 1][mk[2 * j + 5]];
-                    // �м����� �� �� ���� ���� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    /*// ****
-                    // *#**  ->��
-                    // *****/
-
-                    // ***
-                    // *#*  ->��
-                    // ***
-                    if ((abs(up - cen) > DIS && abs(cen - dw) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS
-                         // &&abs(lt-cen)>DIS&&abs(rt-cen)>DIS //��Ҫ���ҵĵ㣬��ΪԶ���򵽵���ĵ�ᱻ���㵽�����ߣ���Ϊ̫Զ�ˣ�����֮�����??����DIS
-                         )
-                        // || (abs(uu-cen)>DIS&&abs(luu-cen)>DIS&&abs(ruu-cen)>DIS)
-                    )
-                    {
-                        continue;
-                    }
-                }
-                // if(j == rings-1)
-                // {
-                //     float cen = mk_rings[i][mk[2*j+1]];
-                //     float dw = mk_rings[i-1][mk[2*j+1]];
-                //     float ld = mk_rings[i-1][mk[2*j-1]];
-                //     float rd = mk_rings[i-1][mk[2*j+3]];
-                //     float dd = mk_rings[i-2][mk[2*j+1]];
-                //     float ldd = mk_rings[i-2][mk[2*j-1]];
-                //     float rdd = mk_rings[i-2][mk[2*j+3]];
-
-                //     // �м����� �� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                //     // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                //     // **
-                //     // **#  ->��
-                //     // **
-                //     if( (abs(cen-dw)>DIS&&abs(ld-cen)>DIS&&abs(rd-cen)>DIS)
-                //         || (abs(dd-cen)>DIS&&abs(ldd-cen)>DIS&&abs(rdd-cen)>DIS)
-                //     )
-                //     {
-                //         continue;
-                //     }
-                // }
-                if (j == rings - 2 && i > 0 && i < pc_image.size() - 1)
-                {
-                    float cen = mk_rings[i][mk[2 * j + 1]];
-                    float up = mk_rings[i][mk[2 * j + 3]];
-                    float dw = mk_rings[i][mk[2 * j - 1]];
-                    float lu = mk_rings[i - 1][mk[2 * j + 3]];
-                    float lt = mk_rings[i - 1][mk[2 * j + 1]];
-                    float ru = mk_rings[i + 1][mk[2 * j + 3]];
-                    float rt = mk_rings[i + 1][mk[2 * j + 1]];
-                    float ld = mk_rings[i - 1][mk[2 * j - 1]];
-                    float rd = mk_rings[i + 1][mk[2 * j - 1]];
-                    float dd = mk_rings[i][mk[2 * j - 3]];
-                    float ldd = mk_rings[i - 1][mk[2 * j - 3]];
-                    float rdd = mk_rings[i + 1][mk[2 * j - 3]];
-                    // �м����� �� �� ���� ���� ���� ���� ������ֵ   ����    �м����� ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    /* // ** *
-                    // **#*  ->��
-                    // ** *   */
-
-                    // * *
-                    // *#*  ->��
-                    // * *
-                    if ((abs(up - cen) > DIS && abs(cen - dw) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS
-                         // &&abs(lt-cen)>DIS&&abs(rt-cen)>DIS
-                         )
-                        // || (abs(dd-cen)>DIS&&abs(ldd-cen)>DIS&&abs(rdd-cen)>DIS)
-                    )
-                    {
-                        continue;
-                    }
-                }
-                // std::cout<<"1"<<std::endl;
-                if (j > 1 && j < rings - 2 && i > 0 && i < pc_image.size() - 1)
-                {
-                    // std::cout << "mk size = " << mk.size() << std::endl;
-                    // std::cout << "mk[(j+1)*2+1]  = " << mk[(j+1)*2+1] << std::endl;
-                    // std::cout << "rings size = " << mk_rings.size() << std::endl;
-                    // std::cout<<"j i = " << j << " " << i << std::endl;
-                    float cen = mk_rings[i][mk[2 * j + 1]];
-                    float up = mk_rings[i][mk[2 * j + 3]];
-                    float dw = mk_rings[i][mk[2 * j - 1]];
-                    float lu = mk_rings[i - 1][mk[2 * j + 3]];
-                    float lt = mk_rings[i - 1][mk[2 * j + 1]];
-                    float ru = mk_rings[i + 1][mk[2 * j + 3]];
-                    float rt = mk_rings[i + 1][mk[2 * j + 1]];
-                    float ld = mk_rings[i - 1][mk[2 * j - 1]];
-                    float rd = mk_rings[i + 1][mk[2 * j - 1]];
-                    float uu = mk_rings[i][mk[2 * j + 5]];
-                    float dd = mk_rings[i][mk[2 * j - 3]];
-                    float luu = mk_rings[i - 1][mk[2 * j + 5]];
-                    float ruu = mk_rings[i + 1][mk[2 * j + 5]];
-                    float ldd = mk_rings[i - 1][mk[2 * j - 3]];
-                    float rdd = mk_rings[i + 1][mk[2 * j - 3]];
-
-                    // std::cout << "cen = " << cen<<" "<<up << " "<<dw<<" "<<lu<<" "<<ru<<" "<<ld<<" "<<rd<<std::endl;
-                    // if(abs(mk_rings[mk[2*j+1]][i-1]-mk_rings[mk[2*j+1]][i])>0.2 || abs(mk_rings[mk[2*j+1]][i+1]-mk_rings[mk[2*j+1]][i])>0.2
-                    // ||  abs(mk_rings[mk[2*j+1]][i-2]-mk_rings[mk[2*j+1]][i])>0.24 || abs(mk_rings[mk[2*j+1]][i+2]-mk_rings[mk[2*j+1]][i])>0.24
-                    //    || abs(mk_rings[mk[2*j+1]][i+1]-mk_rings[mk[2*j+1]][i-1])>0.24 || abs(mk_rings[mk[2*j+1]][i+2]-mk_rings[mk[2*j+1]][i-2])>0.3
-                    // �м����� �� �� ���� ���� ���� ���� ������ֵ   ����    �м����� ���� ������ ������ ���� ������ ������  ������ֵ
-                    // ȥ����Ⱥ�㣬��֤��ǰ����Χ��Ȧ(��ȥ������)������һ����
-                    /*  // ** **
-                    // **#**  ->��
-                    // ** **  */
-
-                    // * *
-                    // *#*  ->��
-                    // * *
-                    if ((abs(up - cen) > DIS && abs(cen - dw) > DIS && abs(lu - cen) > DIS && abs(ru - cen) > DIS && abs(ld - cen) > DIS && abs(rd - cen) > DIS
-                         // &&abs(lt-cen)>DIS&&abs(rt-cen)>DIS
-                         )
-                        // || (abs(uu-cen)>DIS&&abs(luu-cen)>DIS&&abs(ruu-cen)>DIS && abs(dd-cen)>DIS&&abs(ldd-cen)>DIS&&abs(rdd-cen)>DIS)
-                    )
-                    {
-                        continue;
-                    }
-                }
-                // i->1000  j->64   mk[dis,j, dis,j, ...]
-                // recover the point from distance, the layer, and angle of the point
-                pcl::PointXYZI p; //mk[(j)*2]�ǵ�ľ������?
-                p.x = mk[(j)*2] * std::cos((j * factor_t + lowerBound) * M_PI / 180) * std::cos((i * 0.18 - 90) * M_PI / 180);
-                p.y = mk[(j)*2] * std::cos((j * factor_t + lowerBound) * M_PI / 180) * std::sin(-(i * 0.18 - 90) * M_PI / 180);
-                p.z = mk[(j)*2] * std::sin((mk[j * 2 + 1] * factor_t + lowerBound) * M_PI / 180);
-
-                //�ж�ˮƽ�����Ƿ����һ����ֵ��intensityȡ��ֵ�����һ������ֵԽ��Խ������һ�����?
-                if (mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() || mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())
-                {
-                    // if(mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>()){
-                    p.intensity = (mk[(j - 1) * 2] - mk[(j)*2]) > (mk[(j + 1) * 2] - mk[(j)*2]) ? (mk[(j - 1) * 2] - mk[(j)*2]) : (mk[(j + 1) * 2] - mk[(j)*2]); //ȡ�󣬴�����ֵ
-                }
-                //
-                else if (mk[j * 2 + 1] - mk[(j - 1) * 2 + 1] > local_config["angle_pixel_dis"].as<int>() || mk[(j + 1) * 2 + 1] - mk[j * 2 + 1] > local_config["angle_pixel_dis"].as<int>())
-                {
-                    p.intensity = (mk[j * 2 + 1] - mk[(j - 1) * 2 + 1]) > (mk[(j + 1) * 2 + 1] - mk[j * 2 + 1]) ? (mk[j * 2 + 1] - mk[(j - 1) * 2 + 1]) : (mk[(j + 1) * 2 + 1] - mk[j * 2 + 1]); //ȡ�󣬴�����ֵ
-                }
-                // p.intensity = int(mk[j*2+1] * 30) % 255;
-                p.intensity = 0.1;        // TEST: set 0.1 to label horizontal line features
-                pc_feature->push_back(p); // not push back ˮƽ����
-            }
-            else if (local_config["add_edge"].as<bool>())
-            {
-                if (i != 0 && i != rings - 1)
-                {
-                    if (pc_image[mk[j * 2 + 1]][i + 1] != -1 && pc_image[mk[j * 2 + 1]][i + 1] - pc_image[mk[j * 2 + 1]][i] > local_config["shuzhi_dis_th"].as<float>() * pc_image[mk[j * 2 + 1]][i])
-                    {
-                        pcl::PointXYZI p;
-                        p.x = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::cos((mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.y = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::sin(-(mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.z = mk[(j)*2] * std::sin((i * factor_t + lowerBound) * M_PI / 180);
-                        p.intensity = 0.5;
-                        pc_feature->push_back(p);
-                    }
-                    else if (pc_image[mk[j * 2 + 1]][i - 1] != -1 && pc_image[mk[j * 2 + 1]][i - 1] - pc_image[mk[j * 2 + 1]][i] > local_config["shuzhi_dis_th"].as<float>() * pc_image[mk[j * 2 + 1]][i])
-                    {
-                        pcl::PointXYZI p;
-                        p.x = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::cos((mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.y = mk[(j)*2] * std::cos((i * factor_t + lowerBound) * M_PI / 180) * std::sin(-(mk[j * 2 + 1] * 0.18 - 90) * M_PI / 180);
-                        p.z = mk[(j)*2] * std::sin((i * factor_t + lowerBound) * M_PI / 180);
-                        p.intensity = 0.5;
-                        pc_feature->push_back(p);
-                    }
-                }
-            }
-        }
-    }
-}
-
+/**
+ * @brief 投影点云到图像上
+ * 
+ * @param pc 点云
+ * @param raw_image 原始图像
+ * @param output_image 投影后的图像
+ * @param RT 外参矩阵
+ * @param camera_param 内参矩阵
+ */
 void project2image(pcl::PointCloud<pcl::PointXYZI>::Ptr pc, cv::Mat raw_image, cv::Mat &output_image, Eigen::Matrix4f RT, Eigen::Matrix3f camera_param)
 {
 
@@ -904,45 +107,111 @@ void project2image(pcl::PointCloud<pcl::PointXYZI>::Ptr pc, cv::Mat raw_image, c
     }
 }
 
+// 从配置文件中获取结果文件路径
+inline std::string getResultPath(YAML::Node config) {
+    std::string result_path = config["result_path"].as<std::string>();
+    return result_path;
+}
 
-int main() {
-    std::ofstream result_txt("results/result.txt", ios::app);
-    result_txt << "The beginning of the PSO!!!!\n" << endl;
-
-    YAML::Node config = YAML::LoadFile("configs/config0.yaml");
-    
-    // 读取相机内参
+// 从配置文件中读取相机内参
+inline Eigen::Matrix3f getCameraParam(YAML::Node config) {
     Eigen::Matrix3f camera_param;
     camera_param << config["fx"].as<float>(), 0, config["cx"].as<float>(),
         0, config["fy"].as<float>(), config["cy"].as<float>(),
         0, 0, 1;
+    return camera_param;
+}
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_source(new pcl::PointCloud<pcl::PointXYZI>);
-    getPointcloud("./res/bin/0000000000.bin", pc_source);
+// 从配置文件中读取点云路径
+inline std::string getPointCloudPath(YAML::Node config) {
+    std::string point_cloud_path = config["point_cloud_path"].as<std::string>();
+    return point_cloud_path;
+}
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_filtered(pc_source);
-    pcl::PassThrough<pcl::PointXYZI> pass_filter;
-    float x_max, x_min, y_min, y_max, z_min, z_max;
-    x_max = config["x_max"].as<float>();
+// 从配置文件中读取点云限制范围
+inline void getPointCloudRange(YAML::Node config, float& x_min, float& x_max, float& y_min, float& y_max, float& z_min, float& z_max) {
     x_min = config["x_min"].as<float>();
+    x_max = config["x_max"].as<float>();
     y_min = config["y_min"].as<float>();
     y_max = config["y_max"].as<float>();
     z_min = config["z_min"].as<float>();
     z_max = config["z_max"].as<float>();
-    pass_filter.setInputCloud(pc_filtered);
-    pass_filter.setFilterFieldName("y");
-    pass_filter.setFilterLimits(y_min, y_max);
-    pass_filter.filter(*pc_filtered);
-    pass_filter.setFilterFieldName("x");
-    pass_filter.setFilterLimits(x_min, x_max); 
-    pass_filter.filter(*pc_filtered);
-    pass_filter.setFilterFieldName("z");
-    pass_filter.setFilterLimits(z_min, z_max);
-    pass_filter.filter(*pc_filtered);
+}
 
+// 从配置文件中读取图像路径
+inline std::string getImagePath(YAML::Node config) {
+    std::string image_path = config["image_path"].as<std::string>();
+    return image_path;
+}
+
+// 从配置文件中读取外参真值
+inline Eigen::Matrix4f getExtrinsicParam(YAML::Node config) {
+    Eigen::Matrix4f extrinsic_param;
+    
+    Eigen::Matrix3f R_lidar2cam0_unbias;
+    std::vector<float> ext = config["R_lidar2cam0_unbias"]["data"].as<std::vector<float>>();
+    assert((int)ext.size() == 9);
+    R_lidar2cam0_unbias << ext[0], ext[1], ext[2],
+        ext[3], ext[4], ext[5],
+        ext[6], ext[7], ext[8];
+    
+    Eigen::Matrix4f T_lidar2cam0_unbias;
+    // 块操作可以被用作左值或右值
+    T_lidar2cam0_unbias.block(0, 0, 3, 3) = R_lidar2cam0_unbias;
+    T_lidar2cam0_unbias(0, 3) = config["t03"].as<float>();
+    T_lidar2cam0_unbias(1, 3) = config["t13"].as<float>();
+    T_lidar2cam0_unbias(2, 3) = config["t23"].as<float>();
+    T_lidar2cam0_unbias.row(3) << 0, 0, 0, 1;
+
+    Eigen::Matrix4f T_cam02cam2;
+    std::vector<float> cam02cam2 = config["T_cam02cam2"]["data"].as<std::vector<float>>(); 
+    assert((int)cam02cam2.size() == 16);
+    for (int row = 0; row < 4; row++) {
+        for (int col = 0; col < 4; col++) {
+            T_cam02cam2(row, col) = cam02cam2[row * 4 + col];
+        }
+    }
+
+    extrinsic_param = T_cam02cam2 * T_lidar2cam0_unbias;
+
+    return extrinsic_param;
+}
+
+const std::string config_path = "configs/config0.yaml";
+
+int main() {
+    YAML::Node config = YAML::LoadFile(config_path);
+    
+    // 获取结果文件路径
+    std::string result_path = getResultPath(config);
+    std::ofstream result_txt(result_path, ios::app);
+    result_txt << "The beginning of the PSO!!!!\n" << endl;
+
+    // 获取相机内参
+    Eigen::Matrix3f camera_param = getCameraParam(config);
+    result_txt << "camera_param:\n" << camera_param << endl;
+
+    // 获取点云路径
+    std::string point_cloud_path = getPointCloudPath(config);
+    result_txt << "point_cloud_path: " << point_cloud_path << endl;
+
+    // 读取点云
+    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_source(new pcl::PointCloud<pcl::PointXYZI>);
+    getPointCloud(point_cloud_path, pc_source);
+
+    // 获取点云限制范围
+    float x_min, x_max, y_min, y_max, z_min, z_max;
+    getPointCloudRange(config, x_min, x_max, y_min, y_max, z_min, z_max);
+    result_txt << "point_cloud_range: " << x_min << " " << x_max << " " << y_min << " " << y_max << " " << z_min << " " << z_max << endl;
+
+    // 限制点云范围
+    pcl::PointCloud<pcl::PointXYZI>::Ptr pc_filtered(new pcl::PointCloud<pcl::PointXYZI>);
+    pcl::copyPointCloud(*pc_source, *pc_filtered);
+    limitPointCloud(pc_filtered, x_min, x_max, y_min, y_max, z_min, z_max);
+    
+    // 提取点云特征
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature(new pcl::PointCloud<pcl::PointXYZI>);
-    extract_pc_feature(pc_filtered, pc_feature, config);
-
+    extractPCFeature(pc_filtered, pc_feature, config);
     // // visualize the feature pointcloud
     // pcl::visualization::PCLVisualizer feature_viewer("pc_feature");
     // pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZI> feature_color(pc_feature, 0, 255, 0);
@@ -950,29 +219,28 @@ int main() {
     // feature_viewer.addPointCloud(pc_feature, feature_color, "pc_feature");
     // feature_viewer.spin();
 
-    cv::Mat img_source = cv::imread("res/semantic_imgs/0000000000.png", cv::IMREAD_GRAYSCALE);
+    // 获取原始语义图像
+    std::string image_path = getImagePath(config);
+    cv::Mat img_source = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
+    result_txt << "image_path: " << image_path << endl;
     // cv::imshow("img_source", img_source);
     // cv::waitKey();
     
-    // for( auto i = distance_img.begin<uchar>(); i != distance_img.end<uchar>(); ++i) {
-    //     if(*i == 0) continue;
-    //     *i = 255;
-    // }
+    // 二值化
     cv::Mat img_thresh;
     cv::threshold(img_source, img_thresh, 0, 255, cv::THRESH_BINARY);
+    // 内部距离变换
     cv::Mat distance_img = img_thresh.clone();
     cv::distanceTransform(distance_img, distance_img, 1, 3);
     cv::normalize(distance_img, distance_img, config["normalize_inside"].as<int>(), 0, cv::NORM_INF);
     distance_img.convertTo(distance_img, CV_8U);
-    // cv::imshow("distance_img", distance_img);
-    // cv::waitKey();
     for( auto i = distance_img.begin<uchar>(); i != distance_img.end<uchar>(); ++i) {
         if(*i == 0) continue;
         *i = 255-*i;
     }
     // cv::imshow("distance_img", distance_img);
     // cv::waitKey();
-
+    // 外部距离变换
     cv::Mat notmap = ~img_thresh;
     cv::Mat notdistimg;
     cv::distanceTransform(notmap, notdistimg, 1, 3);
@@ -982,28 +250,28 @@ int main() {
         if(*i == 0) continue;
         *i = 255-*i;
     }
-    // cv::imshow("distance_img", notdistimg);
-    // cv::waitKey();
-    add(distance_img, notdistimg, distance_img);
+    // 合并距离变换图
+    cv::add(distance_img, notdistimg, distance_img);
     // cv::imshow("distance_img", distance_img);
     // cv::waitKey();
 
-
+    // 获取外参真值
+    Eigen::Matrix4f extrinsic_param = getExtrinsicParam(config);
+    result_txt << "extrinsic_param:\n" << extrinsic_param << endl;
+    double extrinsic_param_array[6];
+    RT2position(extrinsic_param, extrinsic_param_array);
+    result_txt << "extrinsic_param_array:\n" 
+        << extrinsic_param_array[0] << " " 
+        << extrinsic_param_array[1] << " "
+        << extrinsic_param_array[2] << " "
+        << extrinsic_param_array[3] << " "
+        << extrinsic_param_array[4] << " "
+        << extrinsic_param_array[5] << endl;
     
-    // cv::Mat img_before_pso;
-    // cout << initcalib.particle2RT(initcalib.get_initial_partical()) << endl;
-    // cout << initcalib.camera_param << endl;
-    // cout << initcalib.get_initial_partical()->pbest_fitness << endl;
-    // for(int i = 0; i < 6; ++i) cout << initcalib.get_initial_partical()->x[i] << " ";
-    // cout << endl;
-
-    // result_txt << "Initial_T:\n" << initcalib.particle2RT(initcalib.get_initial_partical()) << endl;
-    // result_txt << "Camera_param:\n" << initcalib.camera_param << endl;
-    // result_txt << "Initial_fitness:\n" << initcalib.get_initial_partical()->pbest_fitness << endl;
-
-    // project2image(pc_feature, distance_img, img_before_pso, 
-    //                     initcalib.particle2RT(initcalib.get_initial_partical()), initcalib.camera_param);
-    // cv::imwrite("results/project_imgs/before_pso.jpg", img_before_pso);
+    // 获取真值投影图
+    cv::Mat img_true;
+    project2image(pc_feature, distance_img, img_true, extrinsic_param, camera_param);
+    cv::imwrite("results/project_imgs/true.png", img_true);
 
     // 定义粒子空间
     int dimension = config["particle_space"]["dimension"].as<int>();
@@ -1035,27 +303,48 @@ int main() {
     cout << "init_position: ";
     for(int i = 0; i < 6; ++i) cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
     
+    result_txt << "算法启动成功！" << endl;
+    result_txt << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << endl;
+    result_txt << "init_position: ";
+    for(int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
+    result_txt << endl;
+
     // PSO算法迭代优化
     double temp_fitness = pso_calib->particle_swarm_->gbest_fitness; // 有隐患，可能存在position不同但fitness相同的情况
     for(int i = 0; i < config["search_loops"].as<int>(); ++i){
         pso_calib->step();
         cout << "\nROUND " << i << "!" << endl;
+        result_txt << "\nROUND " << i << "!" << endl;
         if (pso_calib->particle_swarm_->gbest_fitness == temp_fitness) {
             cout << "result_fitness is not changed!" << endl;
             continue;
         }
         temp_fitness = pso_calib->particle_swarm_->gbest_fitness;
         cout << "搜索后结果" << endl;
+        result_txt << "搜索后结果" << endl;
         cout << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << endl;
+        result_txt << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << endl;
         cout << "result_position:";
+        result_txt << "result_position:";
         for(int i = 0; i < 6; ++i) cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
+        for (int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
+        result_txt << endl;
         
         cv::Mat test1;
         project2image(pc_feature,distance_img, test1, 
                         position2RT(pso_calib->particle_swarm_->gbest_position), camera_param);
         cv::imwrite("results/project_imgs/" + std::to_string(i) + ".jpg", test1);
     }
-    
+
+    // 获取粒子群的均值和标准差
+    std::vector<double> mean, stddeviation;
+    swarm->getParticleMeanAndStd(mean, stddeviation);
+    cout << "mean: " << mean << endl;
+    result_txt << "mean: " << mean << endl;
+    cout << "stddeviation: " << stddeviation << endl;
+    result_txt << "stddeviation: " << stddeviation << endl;
+
+
     result_txt.close();
     
 
