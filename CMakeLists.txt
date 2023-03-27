@@ -35,7 +35,6 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 # 找Boost库
-set(PCL_ROOT "/usr/local")
 find_package(Boost REQUIRED COMPONENTS system thread)
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
@@ -58,9 +57,9 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(/usr/local/include/vtk-9.2)
 
 
-add_library(pso ${PROJECT_SOURCE_DIR}/src/pso.cpp)
+add_library(pso SHARED ${PROJECT_SOURCE_DIR}/src/pso.cpp)
 # add_library(auto_calib STATIC ${PROJECT_SOURCE_DIR}/src/auto_calib.cpp)
-add_library(initCalib ${PROJECT_SOURCE_DIR}/src/initCalib.cpp)
+add_library(initCalib SHARED ${PROJECT_SOURCE_DIR}/src/initCalib.cpp)
 
 # add_executable(testpso test/testpso.cpp)
 # target_link_libraries(testpso ${OpenCV_LIBS} yaml-cpp pso)
@@ -68,5 +67,9 @@ add_library(initCalib ${PROJECT_SOURCE_DIR}/src/initCalib.cpp)
 # add_executable(testpcl test/testpcl.cpp)
 # target_link_libraries(testpcl ${PCL_LIBRARIES} ${Boost_LIBRARIES})
 
+# message(STATUS "OpenCV_LIBS: ${OpenCV_LIBS}")
+# message(STATUS "OpenCV_LIBRARIES: ${OpenCV_LIBRARIES}")
+# message(STATUS "PCL_LIBRARIES: ${PCL_LIBRARIES}")
+# message(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
 add_executable(main src/main.cpp)
-target_link_libraries(main initCalib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${OpenCV_LIBRARIES} yaml-cpp pso ${PCL_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(main initCalib pso yaml-cpp ${PCL_LIBRARIES} ${OpenCV_LIBS} ${Boost_LIBRARIES})

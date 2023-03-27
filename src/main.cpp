@@ -1,6 +1,9 @@
 #include "initCalib.h"
 #include <fstream>
 #include <vector>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#include <pcl/visualization/pcl_visualizer.h>
 
 // 重载<<运算符，方便输出std::vector
 template <typename T>
@@ -17,15 +20,6 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
     return os;
 }
 
-/**
- * @brief 投影点云到图像上
- * 
- * @param pc 点云
- * @param raw_image 原始图像
- * @param output_image 投影后的图像
- * @param RT 外参矩阵
- * @param camera_param 内参矩阵
- */
 void project2image(pcl::PointCloud<pcl::PointXYZI>::Ptr pc, cv::Mat raw_image, cv::Mat &output_image, Eigen::Matrix4f RT, Eigen::Matrix3f camera_param)
 {
 
@@ -344,9 +338,7 @@ int main() {
     cout << "stddeviation: " << stddeviation << endl;
     result_txt << "stddeviation: " << stddeviation << endl;
 
-
     result_txt.close();
     
-
     return 0;
 }

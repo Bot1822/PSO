@@ -1,4 +1,11 @@
 #include "initCalib.h"
+#include <vector>
+#include <fstream>
+
+#include <pcl/filters/passthrough.h>
+
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 
 void getPointCloud(const std::string& path, pcl::PointCloud<pcl::PointXYZI>::Ptr& point_cloud)
 {
@@ -947,43 +954,3 @@ void RT2position(const Eigen::Matrix4f &RT, double* p)
     p[4] = ea[1];
     p[5] = ea[2];
 }
-
-// bool InitCalib::read_configs()
-// {
-//     cout << "Start reading camera_param" << endl;
-//     camera_param << config["fx"].as<float>(), 0.f, config["cx"].as<float>(), 
-//                     0.f, config["fy"].as<float>(), config["cy"].as<float>(),
-//                     0, 0, 1;
-
-//     cout << "Start reading and computing RT!" << endl;
-//     Eigen::Matrix3f R_lidar2cam0_unbias;
-//     std::vector<float> ext = config["R_lidar2cam0_unbias"]["data"].as<std::vector<float>>();
-//     assert((int)ext.size() == 9);
-//     for (int row = 0; row < 3; row++) {
-//         for (int col = 0; col < 3; col++) {
-//             R_lidar2cam0_unbias(row, col) = ext[row * 3 + col];
-//         }
-//     }
-
-//     Eigen::Matrix4f T_lidar2cam0_unbias;
-//     // 块操作可以被用作左值或右值
-//     T_lidar2cam0_unbias.block(0, 0, 3, 3) = R_lidar2cam0_unbias;
-//     T_lidar2cam0_unbias(0, 3) = config["t03"].as<float>();
-//     T_lidar2cam0_unbias(1, 3) = config["t13"].as<float>();
-//     T_lidar2cam0_unbias(2, 3) = config["t23"].as<float>();
-//     T_lidar2cam0_unbias.row(3) << 0, 0, 0, 1;
-
-//     Eigen::Matrix4f T_cam02cam2;
-//     std::vector<float> cam02cam2 = config["T_cam02cam2"]["data"].as<std::vector<float>>(); 
-//     assert((int)cam02cam2.size() == 16);
-//     for (int row = 0; row < 4; row++) {
-//         for (int col = 0; col < 4; col++) {
-//             T_cam02cam2(row, col) = cam02cam2[row * 4 + col];
-//         }
-//     }
-
-//     initial_T = T_cam02cam2 * T_lidar2cam0_unbias;
-//     initial_R = initial_T.block(0, 0, 3, 3);
-    
-//     return true;
-// }
