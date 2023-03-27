@@ -3,7 +3,7 @@
 #include <vector>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
-#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/common/io.h>
 
 // 重载<<运算符，方便输出std::vector
 template <typename T>
@@ -179,16 +179,16 @@ int main() {
     
     // 获取结果文件路径
     std::string result_path = getResultPath(config);
-    std::ofstream result_txt(result_path, ios::app);
-    result_txt << "The beginning of the PSO!!!!\n" << endl;
+    std::ofstream result_txt(result_path, std::ios::app);
+    result_txt << "The beginning of the PSO!!!!\n" << std::endl;
 
     // 获取相机内参
     Eigen::Matrix3f camera_param = getCameraParam(config);
-    result_txt << "camera_param:\n" << camera_param << endl;
+    result_txt << "camera_param:\n" << camera_param << std::endl;
 
     // 获取点云路径
     std::string point_cloud_path = getPointCloudPath(config);
-    result_txt << "point_cloud_path: " << point_cloud_path << endl;
+    result_txt << "point_cloud_path: " << point_cloud_path << std::endl;
 
     // 读取点云
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_source(new pcl::PointCloud<pcl::PointXYZI>);
@@ -197,7 +197,7 @@ int main() {
     // 获取点云限制范围
     float x_min, x_max, y_min, y_max, z_min, z_max;
     getPointCloudRange(config, x_min, x_max, y_min, y_max, z_min, z_max);
-    result_txt << "point_cloud_range: " << x_min << " " << x_max << " " << y_min << " " << y_max << " " << z_min << " " << z_max << endl;
+    result_txt << "point_cloud_range: " << x_min << " " << x_max << " " << y_min << " " << y_max << " " << z_min << " " << z_max << std::endl;
 
     // 限制点云范围
     pcl::PointCloud<pcl::PointXYZI>::Ptr pc_filtered(new pcl::PointCloud<pcl::PointXYZI>);
@@ -217,7 +217,7 @@ int main() {
     // 获取原始语义图像
     std::string image_path = getImagePath(config);
     cv::Mat img_source = cv::imread(image_path, cv::IMREAD_GRAYSCALE);
-    result_txt << "image_path: " << image_path << endl;
+    result_txt << "image_path: " << image_path << std::endl;
     // cv::imshow("img_source", img_source);
     // cv::waitKey();
     
@@ -252,7 +252,7 @@ int main() {
 
     // 获取外参真值
     Eigen::Matrix4f extrinsic_param = getExtrinsicParam(config);
-    result_txt << "extrinsic_param:\n" << extrinsic_param << endl;
+    result_txt << "extrinsic_param:\n" << extrinsic_param << std::endl;
     double extrinsic_param_array[6];
     RT2position(extrinsic_param, extrinsic_param_array);
     result_txt << "extrinsic_param_array:\n" 
@@ -261,7 +261,7 @@ int main() {
         << extrinsic_param_array[2] << " "
         << extrinsic_param_array[3] << " "
         << extrinsic_param_array[4] << " "
-        << extrinsic_param_array[5] << endl;
+        << extrinsic_param_array[5] << std::endl;
     
     // 获取真值投影图
     cv::Mat img_true;
@@ -294,36 +294,36 @@ int main() {
     BasePSO* pso_calib = new BasePSO(swarm, optimizer);
     // PSO算法冷启动
     pso_calib->initPSO();
-    cout << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << endl;
-    cout << "init_position: ";
-    for(int i = 0; i < 6; ++i) cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
+    std::cout << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << std::endl;
+    std::cout << "init_position: ";
+    for(int i = 0; i < 6; ++i) std::cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
     
-    result_txt << "算法启动成功！" << endl;
-    result_txt << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << endl;
+    result_txt << "算法启动成功！" << std::endl;
+    result_txt << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << std::endl;
     result_txt << "init_position: ";
     for(int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
-    result_txt << endl;
+    result_txt << std::endl;
 
     // PSO算法迭代优化
     double temp_fitness = pso_calib->particle_swarm_->gbest_fitness; // 有隐患，可能存在position不同但fitness相同的情况
     for(int i = 0; i < config["search_loops"].as<int>(); ++i){
         pso_calib->step();
-        cout << "\nROUND " << i << "!" << endl;
-        result_txt << "\nROUND " << i << "!" << endl;
+        std::cout << "\nROUND " << i << "!" << std::endl;
+        result_txt << "\nROUND " << i << "!" << std::endl;
         if (pso_calib->particle_swarm_->gbest_fitness == temp_fitness) {
-            cout << "result_fitness is not changed!" << endl;
+            std::cout << "result_fitness is not changed!" << std::endl;
             continue;
         }
         temp_fitness = pso_calib->particle_swarm_->gbest_fitness;
-        cout << "搜索后结果" << endl;
-        result_txt << "搜索后结果" << endl;
-        cout << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << endl;
-        result_txt << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << endl;
-        cout << "result_position:";
+        std::cout << "搜索后结果" << std::endl;
+        result_txt << "搜索后结果" << std::endl;
+        std::cout << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << std::endl;
+        result_txt << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << std::endl;
+        std::cout << "result_position:";
         result_txt << "result_position:";
-        for(int i = 0; i < 6; ++i) cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
+        for(int i = 0; i < 6; ++i) std::cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
         for (int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
-        result_txt << endl;
+        result_txt << std::endl;
         
         cv::Mat test1;
         project2image(pc_feature,distance_img, test1, 
@@ -334,10 +334,10 @@ int main() {
     // 获取粒子群的均值和标准差
     std::vector<double> mean, stddeviation;
     swarm->getParticleMeanAndStd(mean, stddeviation);
-    cout << "mean: " << mean << endl;
-    result_txt << "mean: " << mean << endl;
-    cout << "stddeviation: " << stddeviation << endl;
-    result_txt << "stddeviation: " << stddeviation << endl;
+    std::cout << "mean: " << mean << std::endl;
+    result_txt << "mean: " << mean << std::endl;
+    std::cout << "stddeviation: " << stddeviation << std::endl;
+    result_txt << "stddeviation: " << stddeviation << std::endl;
 
     result_txt.close();
     
