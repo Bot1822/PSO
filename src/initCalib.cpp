@@ -425,8 +425,8 @@ void extractPCFeature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<
             if (
                 // mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
                 // mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
-                ((mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())) || // && std::abs(mk[(j-1)*2+1]-mk[(j)*2+1])==1) || //ˮƽ��ߵ����˵����һ����ֵ(��������)
-                ((mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())) || //&& std::abs(mk[(j+1)*2+1]-mk[(j)*2+1])==1) || //ˮƽ�ұߵ����˵����һ�����?(��������)
+                ((mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold)) || // && std::abs(mk[(j-1)*2+1]-mk[(j)*2+1])==1) || //ˮƽ��ߵ����˵����һ����ֵ(��������)
+                ((mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold)) || //&& std::abs(mk[(j+1)*2+1]-mk[(j)*2+1])==1) || //ˮƽ�ұߵ����˵����һ�����?(��������)
                 // mk[j*2+1] - mk[(j-1)*2+1] > local_config["angle_pixel_dis"].as<int>() || //ˮƽ�ǶȾ������һ�����?
                 // mk[(j+1)*2+1] - mk[j*2+1] > local_config["angle_pixel_dis"].as<int>() ||
                 local_config["show_all"].as<bool>())
@@ -560,7 +560,7 @@ void extractPCFeature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<
                 p.z = mk[(j)*2] * std::sin((i * factor_t + lowerBound) * M_PI / 180.0);
                 // i->64  j->1000   mk[dis,j, dis,j, ...]
                 //�ж�ˮƽ�����Ƿ����һ����ֵ��intensityȡ��ֵ�����һ���������в�ֵԽ�����Խ������һ����
-                if (mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() || mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())
+                if (mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold || mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())
                 {
                     // if(mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>()){
                     p.intensity = (mk[(j - 1) * 2] - mk[(j)*2]) > (mk[(j + 1) * 2] - mk[(j)*2]) ? (mk[(j - 1) * 2] - mk[(j)*2]) : (mk[(j + 1) * 2] - mk[(j)*2]); //ȡ��ֵ��ģ������ֵ
@@ -626,8 +626,8 @@ void extractPCFeature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<
             if (
                 // mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
                 // mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
-                ((mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() * 1.5)) || // && (std::abs(mk[(j-1)*2+1] - mk[(j)*2+1]) == 1 ))||//mk[(j)*2] / config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
-                ((mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() * 1.5)) || //&& (std::abs(mk[(j+1)*2+1] - mk[(j)*2+1]) == 1 ))||//mk[(j)*2] / config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
+                ((mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold * 1.5)) || // && (std::abs(mk[(j-1)*2+1] - mk[(j)*2+1]) == 1 ))||//mk[(j)*2] / config["dis_threshold"].as<float>() || //ˮƽ��ߵ����˵����һ����ֵ(��������)
+                ((mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold * 1.5)) || //&& (std::abs(mk[(j+1)*2+1] - mk[(j)*2+1]) == 1 ))||//mk[(j)*2] / config["dis_threshold"].as<float>() || //ˮƽ�ұߵ����˵����һ�����?(��������)
                 // mk[j*2+1] - mk[(j-1)*2+1] > local_config["angle_pixel_dis"].as<int>() || //ˮƽ�ǶȾ������һ�����?
                 // mk[(j+1)*2+1] - mk[j*2+1] > local_config["angle_pixel_dis"].as<int>() ||
                 local_config["show_all"].as<bool>())
@@ -801,7 +801,7 @@ void extractPCFeature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<
                 p.z = mk[(j)*2] * std::sin((mk[j * 2 + 1] * factor_t + lowerBound) * M_PI / 180);
 
                 //�ж�ˮƽ�����Ƿ����һ����ֵ��intensityȡ��ֵ�����һ������ֵԽ��Խ������һ�����?
-                if (mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>() || mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / config["dis_threshold"].as<float>())
+                if (mk[(j - 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold || mk[(j + 1) * 2] - mk[(j)*2] > mk[(j)*2] / dis_threshold)
                 {
                     // if(mk[(j-1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>() || mk[(j+1)*2] - mk[(j)*2] > config["dis_threshold"].as<float>()){
                     p.intensity = (mk[(j - 1) * 2] - mk[(j)*2]) > (mk[(j + 1) * 2] - mk[(j)*2]) ? (mk[(j - 1) * 2] - mk[(j)*2]) : (mk[(j + 1) * 2] - mk[(j)*2]); //ȡ�󣬴�����ֵ
@@ -856,14 +856,14 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
     int points_num = 0;
     for (int j = 0; j < edge_size; j++)
     {
-        pcl::PointXYZI r;
+        pcl::PointXYZI point;
         Eigen::Vector4f raw_point;
         Eigen::Vector3f trans_point3;
-        r = pc_feature->points[j];
+        point = pc_feature->points[j];
 
-        raw_point(0, 0) = r.x;
-        raw_point(1, 0) = r.y;
-        raw_point(2, 0) = r.z;
+        raw_point(0, 0) = point.x;
+        raw_point(1, 0) = point.y;
+        raw_point(2, 0) = point.z;
         raw_point(3, 0) = 1;
         trans_point3 = RT_X_CAM * raw_point;
 
@@ -881,7 +881,7 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
         //     continue;
         
         // Error
-        if (r.intensity < 0 || distance_image.at<uchar>(y, x) < 0)
+        if (point.intensity < 0 || distance_image.at<uchar>(y, x) < 0)
         {
             std::cout << "\033[33mError: has intensity<0\033[0m" << std::endl;
             exit(0);
@@ -889,15 +889,15 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
     
         points_num++;
 
-        double pt_dis = pow(r.x * r.x + r.y * r.y + r.z * r.z, double(1.0 / 2.0));
-        //std::cout << r.x << "  " << r.y << "   " << r.z << "  " << pt_dis << std::endl;
+        double pt_dis = pow(point.x * point.x + point.y * point.y + point.z * point.z, double(1.0 / 2.0));
+        //std::cout << point.x << "  " << point.y << "   " << point.z << "  " << pt_dis << std::endl;
 
         // add distance weight or not
         bool add_dis_weight = false;
         if (add_dis_weight)
         {
             // one_score +=  (distance_image.at<uchar>(y, x) * sqrt(pc_feature->points[j].intensity));
-            if (abs(r.intensity - 0.1) < 0.2)
+            if (point.intensity < 0.3)
             {
                 one_score += (distance_image.at<uchar>(y, x) / pt_dis * 2) * 1.2; 
             }

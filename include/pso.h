@@ -7,7 +7,9 @@
 #include <cmath>
 
 // 返回0-1的随机数
-inline double rand0_1() {return ((1.0*rand())/RAND_MAX);}
+inline double rand0_1() {
+    return ((1.0*rand())/RAND_MAX);
+}
 
 // 粒子描述符，包含粒子的位置、速度、适应度、最优位置
 typedef struct Particle Particle;

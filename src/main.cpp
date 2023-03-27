@@ -174,6 +174,7 @@ inline Eigen::Matrix4f getExtrinsicParam(YAML::Node config) {
 const std::string config_path = "configs/config0.yaml";
 
 int main() {
+    srand((unsigned)time(NULL));
     YAML::Node config = YAML::LoadFile(config_path);
     
     // 获取结果文件路径
