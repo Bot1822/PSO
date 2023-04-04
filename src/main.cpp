@@ -174,8 +174,15 @@ inline Eigen::Matrix4f getExtrinsicParam(YAML::Node config) {
 const std::string config_path = "configs/config0.yaml";
 
 int main() {
-    srand((unsigned)time(NULL));
+    
     YAML::Node config = YAML::LoadFile(config_path);
+
+    // 设置随机数种子
+    unsigned int seed = config["seed"].as<unsigned int>();
+    if (seed == 0) {
+        seed = (unsigned)time(NULL);
+    }
+    srand(seed);
     
     // 获取结果文件路径
     std::string result_path = getResultPath(config);
@@ -294,50 +301,83 @@ int main() {
     BasePSO* pso_calib = new BasePSO(swarm, optimizer);
     // PSO算法冷启动
     pso_calib->initPSO();
-    std::cout << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << std::endl;
-    std::cout << "init_position: ";
-    for(int i = 0; i < 6; ++i) std::cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
+    std::cout << "init_fitness: " << pso_calib->getResultFitness() << std::endl;
+    std::cout << "init_position: " << pso_calib->getResult() << std::endl;
+    std::cout << "Init PSO Success!" << std::endl;
     
-    result_txt << "算法启动成功！" << std::endl;
-    result_txt << "init_fitness: " << pso_calib->particle_swarm_->gbest_fitness << std::endl;
-    result_txt << "init_position: ";
-    for(int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
-    result_txt << std::endl;
+    result_txt << "init_fitness: " << pso_calib->getResultFitness() << std::endl;
+    result_txt << "init_position: " << pso_calib->getResult() << std::endl;
+    result_txt << "Init PSO Success!" << std::endl;
+
+    // 获取真值得分
+    Particle* true_particle = new Particle();
+    true_particle->x = extrinsic_param_array;
+    true_particle->pbest_fitness = calib_problem->calculateFitness(*true_particle);
+    std::cout << "true_fitness: " << true_particle->pbest_fitness << std::endl;
+    result_txt << "true_fitness: " << true_particle->pbest_fitness << std::endl;
+
+    // 设置标准差收敛阈值
+    double threshold = config["threshold"].as<double>();
 
     // PSO算法迭代优化
-    double temp_fitness = pso_calib->particle_swarm_->gbest_fitness; // 有隐患，可能存在position不同但fitness相同的情况
-    for(int i = 0; i < config["search_loops"].as<int>(); ++i){
+    double temp_fitness = pso_calib->getResultFitness(); // 有隐患，可能存在position不同但fitness相同的情况
+    for(int i = 1; i <= config["search_loops"].as<int>(); ++i){
         pso_calib->step();
-        std::cout << "\nROUND " << i << "!" << std::endl;
-        result_txt << "\nROUND " << i << "!" << std::endl;
+        // 每50轮判断标准差是否收敛
+        if (i % 50 == 0) {
+            std::cout << "ROUND " << i << "!" << "Judge whether the stddeviation is converged!" << std::endl;
+            result_txt << "ROUND " << i << "!" << "Judge whether the stddeviation is converged!" << std::endl;
+            std::vector<double> mean, stddeviation;
+            swarm->getParticleMeanAndStd(mean, stddeviation);
+            std::cout << "mean: " << mean << std::endl;
+            result_txt << "mean: " << mean << std::endl;
+            std::cout << "stddeviation: " << stddeviation << std::endl;
+            result_txt << "stddeviation: " << stddeviation << std::endl;
+            if (stddeviation[0] < threshold && stddeviation[1] < threshold && stddeviation[2] < threshold && stddeviation[3] < threshold && stddeviation[4] < threshold && stddeviation[5] < threshold) {
+                std::cout << "stddeviation is converged!" << std::endl;
+                result_txt << "stddeviation is converged!" << std::endl;
+                break;
+            }
+        }
+
+        std::cout << "ROUND " << i << "!" << std::endl;
+        result_txt << "ROUND " << i << "!" << std::endl;
         if (pso_calib->particle_swarm_->gbest_fitness == temp_fitness) {
             std::cout << "result_fitness is not changed!" << std::endl;
             continue;
         }
-        temp_fitness = pso_calib->particle_swarm_->gbest_fitness;
+        temp_fitness = pso_calib->getResultFitness();
         std::cout << "搜索后结果" << std::endl;
         result_txt << "搜索后结果" << std::endl;
         std::cout << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << std::endl;
         result_txt << "result_fitness:" << pso_calib->particle_swarm_->gbest_fitness << std::endl;
-        std::cout << "result_position:";
-        result_txt << "result_position:";
-        for(int i = 0; i < 6; ++i) std::cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
-        for (int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
-        result_txt << std::endl;
+        std::cout << "result_position:" << pso_calib->getResult() << std::endl;
+        result_txt << "result_position:" << pso_calib->getResult() << std::endl;
         
-        cv::Mat test1;
-        project2image(pc_feature,distance_img, test1, 
+        cv::Mat project_img;
+        project2image(pc_feature,distance_img, project_img, 
                         position2RT(pso_calib->particle_swarm_->gbest_position), camera_param);
-        cv::imwrite("results/project_imgs/" + std::to_string(i) + ".jpg", test1);
+        cv::imwrite("results/project_imgs/" + std::to_string(i) + ".jpg", project_img);
+
     }
 
-    // 获取粒子群的均值和标准差
-    std::vector<double> mean, stddeviation;
-    swarm->getParticleMeanAndStd(mean, stddeviation);
-    std::cout << "mean: " << mean << std::endl;
-    result_txt << "mean: " << mean << std::endl;
-    std::cout << "stddeviation: " << stddeviation << std::endl;
-    result_txt << "stddeviation: " << stddeviation << std::endl;
+    // 获取最优解与真值的差值
+    std::vector<double> diff;
+    for(int i = 0; i < 6; ++i) diff.push_back(pso_calib->particle_swarm_->gbest_position[i] - extrinsic_param_array[i]);
+    std::cout << "diff: " << diff << std::endl;
+    result_txt << "diff: " << diff << std::endl;
+
+    // 获取最优解，转为矩阵
+    std::cout << "result_position: ";
+    for (int i = 0; i < 6; ++i) std::cout << pso_calib->particle_swarm_->gbest_position[i] << " ";
+    std::cout << std::endl;
+    result_txt << "result_position: ";
+    for (int i = 0; i < 6; ++i) result_txt << pso_calib->particle_swarm_->gbest_position[i] << " ";
+    result_txt << std::endl;
+    std::cout << "result_fitness: " << pso_calib->particle_swarm_->gbest_fitness << std::endl;
+    result_txt << "result_fitness: " << pso_calib->particle_swarm_->gbest_fitness << std::endl;
+    std::cout << "result_RT: " << position2RT(pso_calib->particle_swarm_->gbest_position) << std::endl;
+    result_txt << "result_RT: " << position2RT(pso_calib->particle_swarm_->gbest_position) << std::endl;
 
     result_txt.close();
     

@@ -19,6 +19,8 @@ void extractPCFeature(pcl::PointCloud<pcl::PointXYZI>::Ptr &pc, pcl::PointCloud<
 
 float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv::Mat distance_image,
                  Eigen::Matrix4f RT, Eigen::Matrix3f camera_param);
+float countScore_imgbased(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv::Mat distance_image,
+                          Eigen::Matrix4f RT, Eigen::Matrix3f camera_param);
 
 // 粒子位置转换为RT矩阵
 Eigen::Matrix4f position2RT(double* p);
@@ -38,7 +40,7 @@ public:
 
     // 重写fitness函数
     double calculateFitness (Particle &p) override {
-        return countScore(pc_feature, distance_image, particle2RT(p), camera_param);
+        return countScore_imgbased(pc_feature, distance_image, particle2RT(p), camera_param);
     };
     void set_pc_feature(pcl::PointCloud<pcl::PointXYZI>::Ptr _pc_feature){
         pc_feature = _pc_feature;

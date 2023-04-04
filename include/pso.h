@@ -124,7 +124,7 @@ public:
     // 优化直到满足条件
     bool optimizeUntil(double threshold, int times);
     // 获取最优解
-    double* getResult();
+    std::vector<double> getResult();
     // 获取最优解的适应度
     double getResultFitness();
     // 设置粒子群

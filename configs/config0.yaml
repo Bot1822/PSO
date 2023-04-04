@@ -44,17 +44,17 @@ extract_pc_edges:
   shuzhi_dis_th: 0.6
   angle_pixel_dis: 3
 
+seed: 1
+threshold: 0.01
 
 result_path: results/result.txt
 point_cloud_path: ./res/bin/0000000000.bin
 image_path: ./res/semantic_imgs/0000000000.png
 
-normalize_inside: 300
-normalize_outside: 1000
+normalize_inside: 100
+normalize_outside: 1500
 
-search_loops: 100
-search_scope: [-0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
-particle_num: 500
+search_loops: 10000
 
 particle_space:
   dimension: 6
@@ -65,8 +65,8 @@ particle_swarm:
   swarm_size: 100
 
 move_mode:
-  inertia_weight: 1
+  inertia_weight: 0.5
   personal_weight: 1
-  social_weight: 1
+  social_weight: 2
   max_velocity: 0.3
   rebound_decay: 0.8

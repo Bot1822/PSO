@@ -896,14 +896,17 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
         bool add_dis_weight = false;
         if (add_dis_weight)
         {
-            // one_score +=  (distance_image.at<uchar>(y, x) * sqrt(pc_feature->points[j].intensity));
-            if (point.intensity < 0.3)
+            if (pt_dis > 50)
             {
-                one_score += (distance_image.at<uchar>(y, x) / pt_dis * 2) * 1.2; 
+                one_score += distance_image.at<uchar>(y, x) * 0.5;
+            }
+            else if (pt_dis > 25)
+            {
+                one_score += distance_image.at<uchar>(y, x) * 0.8;
             }
             else
             {
-                one_score += (distance_image.at<uchar>(y, x) / pt_dis * 2);
+                one_score += distance_image.at<uchar>(y, x);
             }
         }
         else
@@ -913,6 +916,68 @@ float countScore(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv
     }
     // 
     if (points_num < 200) return 0;
+    // score = one_score;// / (float)data_num;
+    // cout << "point_num: " << points_num << endl;
+    score = one_score / 255.0;
+
+    return score;
+}
+
+float countScore_imgbased(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature, const cv::Mat distance_image,
+                 Eigen::Matrix4f RT, Eigen::Matrix3f camera_param){
+    // 拷贝一份图片供计算得分
+    cv::Mat distance_image_copy = distance_image.clone();
+    float score = 0;
+    Eigen::Matrix<float, 3, 4> RT_TOP3, RT_X_CAM; //lida2image=T*(T_cam02cam2)*T_cam2image
+    RT_TOP3 = RT.topRows(3);
+    RT_X_CAM = camera_param * RT_TOP3;
+
+    //count Score
+    int edge_size = pc_feature->size();
+    float one_score = 0;
+    int points_num = 0;
+    for (int j = 0; j < edge_size; j++)
+    {
+        pcl::PointXYZI point;
+        Eigen::Vector4f raw_point;
+        Eigen::Vector3f trans_point3;
+        point = pc_feature->points[j];
+
+        raw_point(0, 0) = point.x;
+        raw_point(1, 0) = point.y;
+        raw_point(2, 0) = point.z;
+        raw_point(3, 0) = 1;
+        trans_point3 = RT_X_CAM * raw_point;
+
+        // ignore the point behind
+        if(trans_point3(2, 0) < 0) 
+            continue;
+
+        int x = (int)(trans_point3(0, 0) / trans_point3(2, 0));
+        int y = (int)(trans_point3(1, 0) / trans_point3(2, 0));
+        // ignore the point outside
+        if (x < 0 || x > (distance_image.cols - 1) || y < 0 || y > (distance_image.rows - 1)) 
+            continue;
+        // // ignore the point useless
+        // if(distance_image.at<uchar>(y, x) < 50) 
+        //     continue;
+        
+        // Error
+        if (point.intensity < 0 || distance_image.at<uchar>(y, x) < 0)
+        {
+            std::cout << "\033[33mError: has intensity<0\033[0m" << std::endl;
+            exit(0);
+        }
+    
+        points_num++;
+
+        // 获取投影点灰度值，同时将该点置为0，防止重复计算
+        one_score += distance_image_copy.at<uchar>(y, x);
+        distance_image_copy.at<uchar>(y, x) = 0;
+        // 该点周围的点也进行灰度衰减？
+
+    }
+
     // score = one_score;// / (float)data_num;
     // cout << "point_num: " << points_num << endl;
     score = one_score / 255.0;

@@ -191,8 +191,12 @@ bool BasePSO::optimizeUntil(double threshold, int times){
     }
     return false;
 }
-double* BasePSO::getResult(){
-    return particle_swarm_->gbest_position;
+std::vector<double> BasePSO::getResult(){
+    std::vector<double> result;
+    for (int i = 0; i < particle_swarm_->particle_space_->dimension; i++) {
+        result.push_back(particle_swarm_->gbest_position[i]);
+    }
+    return result;
 }
 double BasePSO::getResultFitness(){
     return particle_swarm_->gbest_fitness;
