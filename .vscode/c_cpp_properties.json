@@ -4,12 +4,11 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/include",
-                "/usr/local/include/pcl-1.12",
                 "/usr/local/include/vtk-9.2",
                 "/usr/local/include/yaml-cpp",
-                "/usr/local/include/eigen3",
                 "/usr/local/include",
-                "/usr/include/**"
+                "/usr/include/**",
+                "/usr/local/include/pcl-1.13"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/g++",

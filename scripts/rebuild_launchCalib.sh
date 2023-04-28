@@ -2,6 +2,8 @@
 
 echo "Rebuilding and launching calibration..."
 # 进入工作目录
-cd /home/piggy_georgy/work_spaces/PSO/scripts
+SCRIPT_DIR=$(cd $(dirname $0); pwd)
+echo "Current dir: ${SCRIPT_DIR}"
+cd ${SCRIPT_DIR}/../
 ./compileCalib.sh
 ./launchCalib.sh

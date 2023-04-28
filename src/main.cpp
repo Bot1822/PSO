@@ -4,6 +4,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #include <pcl/common/io.h>
+#include <pcl/visualization/cloud_viewer.h>
 
 // 重载<<运算符，方便输出std::vector
 template <typename T>
