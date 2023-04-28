@@ -45,7 +45,6 @@ extract_pc_edges:
   angle_pixel_dis: 3
 
 seed: 1
-threshold: 0.01
 
 result_path: results/result.txt
 point_cloud_path: ./res/bin/0000000000.bin
@@ -55,6 +54,7 @@ normalize_inside: 100
 normalize_outside: 1500
 
 search_loops: 10000
+threshold: 0.01
 
 particle_space:
   dimension: 6

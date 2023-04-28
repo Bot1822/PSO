@@ -958,9 +958,6 @@ float countScore_imgbased(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature,
         // ignore the point outside
         if (x < 0 || x > (distance_image.cols - 1) || y < 0 || y > (distance_image.rows - 1)) 
             continue;
-        // // ignore the point useless
-        // if(distance_image.at<uchar>(y, x) < 50) 
-        //     continue;
         
         // Error
         if (point.intensity < 0 || distance_image.at<uchar>(y, x) < 0)
@@ -978,10 +975,7 @@ float countScore_imgbased(const pcl::PointCloud<pcl::PointXYZI>::Ptr pc_feature,
 
     }
 
-    // score = one_score;// / (float)data_num;
-    // cout << "point_num: " << points_num << endl;
     score = one_score / 255.0;
-
     return score;
 }
 
